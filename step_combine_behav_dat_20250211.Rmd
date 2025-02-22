@@ -1,0 +1,850 @@
+---
+title: "step_combine_dat"
+author: "Jessica Arend"
+date: "2025-02-11"
+output: html_document
+---
+# Load, clean, combine data [hidden in output]
+```{r, echo = FALSE, include = FALSE}
+# clear workspace
+rm(list=ls())
+
+# read in packages
+pacman::p_load(stats, stringr, dplyr, tidyr, ggplot2, lme4, emmeans, lmerTest, Matrix, pbkrtest, psych, car, performance, parameters, data.table, tibble)
+
+# set working directory and read in data
+# STUTI WILL NEED TO CHANGE THIS TO HER LOCAL LOCATION
+setwd("~/Documents/umn_work/topx_analyses/")
+```
+## Functions - cleaning
+```{r, echo = FALSE, include = FALSE}
+## function to remove test cases, fix name formatting -------
+clean_data <- function(data) {
+  # rename subject id as "subj"
+  data <- data %>% rename(subj = record_id)
+  # identify test rows and filter them out
+  ex_strings <- c('TEST', "Test", "test", "NDAR", "archive")
+  dat_probs <- data[grep(paste(ex_strings, collapse='|'), 
+                         data$subj, ignore.case = TRUE), ]
+  data <- data[!data$subj %in% dat_probs$subj, ]
+  # remove the "proofpoint" string from subj ids
+  data$subj <- gsub('PROOFPOINT|-|[*]','', data$subj)
+  # trim white spaces
+  data$subj <- trimws(data$subj)
+  return(as.data.frame(data))
+  }
+
+# function to clean up blankrows and repeat instances
+clean_rep_inst <- function(data, date) {
+  # remove rows with all NAs
+  data <- data[!is.na(data$redcap_repeat_instance), ]
+  # if a given subj has multiple instances, keep 2nd instance
+  data <- as.data.table(data)
+  tmp <- data[order(data[[date]]), 
+                      if (any(redcap_repeat_instance == "2")) 
+                        first(.I[redcap_repeat_instance == "2"]) 
+                      else last(.I), keyby = "subj"]
+  data <- data[tmp$V1]
+  return(as.data.frame(data))
+}
+```
+
+## Demo
+```{r, echo = FALSE, include = FALSE}
+### demographics -------
+# pull data from REDCap > "Demographics + Dx" report 
+# load in and clean data
+dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20250125.csv")
+dat_demo <- clean_data(dat_demo)
+
+# remove unnecessary rows
+dat_demo <- subset(dat_demo, select = -c(redcap_event_name, redcap_repeat_instrument, redcap_repeat_instance, clinical_status))
+
+# recode gender into one variable, rather than two
+dat_demo$gender <- if_else(is.na(dat_demo$gender_cis), dat_demo$gender_trans, dat_demo$gender_cis)
+
+# recode "highest caregiver education" variable, taking highest of mother/father
+dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$mother_education, na.rm = TRUE)
+
+# recode status_ppt_type (numeric) to group (labelled category)
+dat_demo$group <- ifelse(dat_demo$status_ppt_type == 1, "Control", 
+                     ifelse(dat_demo$status_ppt_type == 2, 
+                            "Patient", NA))
+
+# if controls' diagnosis is NA, recode dx=0
+dat_demo$primary_dx[dat_demo$status_ppt_type == 1 &
+                  is.na(dat_demo$primary_dx)] <- 0
+
+# set control duration of psychosis to NA
+dat_demo$duration_of_psychosis[dat_demo$status_ppt_type == 1] <- NA
+
+# recode affective/nonaffective psychosis
+dat_demo$dx_affect <- as.character(dat_demo$primary_dx)
+dat_demo$dx_affect <- as.numeric(
+  dplyr::recode(dat_demo$dx_affect,
+                "0" = "0", # control
+                "1" = "1", # schizophrenia -> non-affective (NA)
+                "2" = "1", # schizoaffective -> NA
+                "3" = "1", # schizophreniform -> NA
+                "4" = "1", # psychosis NOS -> NA
+                "5" = "2", # bipolar with psychosis -> Aff
+                "6" = "2", # major depression with psychosis - Aff
+                "7" = "1")) # other unspecified psychosis -> NA
+
+# recode diagnosis - 5 split
+# before: 0=control, 1=Sz, 2=SzAff, 3=Szform, 4=NOS, 5=BP, 6=MDD, 7=other
+# now: 0 = control, 1 = Sz/SzAff/Szform, 2 = BP, 3 = MDD, 4 = NOS/other
+dat_demo$dx_5split <- as.character(dat_demo$primary_dx)
+dat_demo$dx_5split <- as.numeric(
+  dplyr::recode(dat_demo$dx_5split,
+                "0" = "0",
+                "1" = "1",
+                "2" = "1",
+                "3" = "1",
+                "4" = "4",
+                "5" = "2",
+                "6" = "3",
+                "7" = "4"))
+
+# start the revised combined data frame
+dat_behav <- dat_demo
+```
+
+## optional: filter dat behav by another dataset
+```{r}
+ddm_sample_subjx <- read.csv("~/Documents/umn_work/topx_analyses/topx_mri_ddm/data/topx_ddm_sample_subjx_20250125.csv")
+dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+```
+
+## BPRS
+```{r, echo = FALSE, include = FALSE}
+### BPRS  -------------------
+# download BPRS data from REDCap using "Data Exports" > "Selected Instruments or Events" >
+    #  select "BPRS" & "Baseline" > export raw data as csv
+# load in and clean data
+dat_bprs <- read.csv("../data/nontask_data/clinical/BPRS_DATA_20240802.csv")
+dat_bprs <- clean_data(dat_bprs)
+dat_bprs <- clean_rep_inst(dat_bprs, "bprs_date")
+
+dat_bprs <- dat_bprs %>% 
+  mutate(bprs_pos_ws = bprs08_gran + bprs09_susp + bprs10_hall + bprs11_unus + bprs12_bizb) %>% 
+  mutate(bprs_neg_ws = bprs16_blun + bprs17_emot + bprs18_motr) %>% 
+  mutate(bprs_disorg_ws = bprs01_somc + bprs06_host + bprs13_self + 
+           bprs14_diso + bprs15_conc + bprs20_unco) %>% 
+  mutate(bprs_mania_ws = bprs07_elat + bprs08_gran + bprs21_exci + bprs23_mohy + bprs24_mann) %>% 
+  mutate(bprs_dep_anx_ws = bprs02_anxi + bprs03_depr + bprs04_suic + bprs05_guil)
+
+dat_bprs <- dat_bprs %>%
+  select(
+    subj,
+    bprs_repeat_instance = redcap_repeat_instance,
+    bprs_date,
+    bprs_total,
+    bprs_positive,
+    bprs_negative,
+    bprs_disorganized,
+    bprs_depression,
+    bprs_mania,
+    bprs_pos_ws,
+    bprs_neg_ws,
+    bprs_disorg_ws,
+    bprs_mania_ws,
+    bprs_dep_anx_ws
+  )
+
+# match BPRS data to all behav data
+dat_behav <- merge(dat_behav, dat_bprs, by = "subj", all.x = TRUE)
+```
+ 
+## SANS-SAPS
+```{r, echo = FALSE, include = FALSE}
+### SANS-SAPS  ---------------------
+# download SANS-SAPS data from REDCap using "Data Exports" > "Selected Instruments or Events" >
+    #  select "SANS-SAPS" & "Baseline" > export raw data as csv
+# load in and clean data
+dat_sanssaps <- read.csv("../data/nontask_data/clinical/step_sanssaps_20250125.csv")
+dat_sanssaps <- clean_data(dat_sanssaps)
+dat_sanssaps <- clean_rep_inst(dat_sanssaps, "sanssaps_date")
+dat_sanssaps <- dat_sanssaps %>% filter(!grepl("^SP1", subj))
+
+# select only columns with rated (numeric) values
+dat_sanssaps <- dat_sanssaps %>% 
+  select(subj, sanssaps_date, redcap_repeat_instance, sans01_express, sans02_movement, sans03_gestures, sans04_eye, sans05_respons, sans06_vocal, sans07_global_flattening, sans08_inapprop, sans09_povspeech, sans10_povcontent, sans11_blocking, sans12_latency, sans13_global_alogia, sans14_hygiene, sans15_impersist, sans16_anergia, sans17_global_avolition, sans18_recreate, sans19_sexual, sans20_intimacy, sans21_friends, sans22_global_asociality, sans23_socinattention, sans24_statinattention, sans25_global_attention, saps01_auditory, saps02_comment, saps03_converse, saps04_somatic, saps05_olfactory, saps06_visual, saps07_global_hall, saps08_persec, saps09_jealous, saps10_guilt, saps11_grand, saps12_religious, saps13_somaticdel, saps14_reference, saps15_control, saps16_mind, saps17_broadcast, saps18_insertion, saps19_withdrawal, saps20_global_del, saps21_appearance, saps22_social, saps23_aggress, saps24_repetitive, saps25_global_biz, saps26_derailment, saps27_tangent, saps28_incoherence, saps29_illogicality, saps30_circumstan, saps31_pressured, saps32_distract, saps33_clanging, saps34_global_thought)
+
+# make all sans/saps items numeric
+columns_to_convert <- c("sans01_express", "sans02_movement", "sans03_gestures", "sans04_eye", "sans05_respons", "sans06_vocal", "sans08_inapprop", "sans09_povspeech", "sans10_povcontent", "sans11_blocking", "sans12_latency", "sans14_hygiene", "sans15_impersist", "sans16_anergia", "sans18_recreate", "sans19_sexual", "sans24_statinattention", "saps21_appearance", "saps24_repetitive")
+dat_sanssaps <- dat_sanssaps %>%
+  mutate_at(vars(columns_to_convert), as.integer)
+
+
+# note: sans08 is typically not included in sans item total; saps08/saps10/saps13 not typically included in saps item total
+dat_sanssaps <- dat_sanssaps %>% 
+  mutate(sans_item_total = sans01_express + sans02_movement +
+           sans03_gestures + sans04_eye + sans05_respons +
+           sans06_vocal + sans08_inapprop + sans09_povspeech +
+           sans10_povcontent + sans11_blocking + sans12_latency +
+           sans14_hygiene + sans15_impersist + sans16_anergia +
+           sans18_recreate + sans19_sexual + sans20_intimacy +
+           sans21_friends + sans23_socinattention +
+           sans24_statinattention) %>%
+  mutate(sans_global_total = sans07_global_flattening +
+           sans13_global_alogia + sans17_global_avolition +
+           sans22_global_asociality + sans25_global_attention) %>% 
+  mutate(saps_item_total = saps01_auditory + saps02_comment + 
+           saps03_converse + saps04_somatic +
+           saps05_olfactory + saps06_visual + saps08_persec +
+           saps09_jealous + saps10_guilt + saps11_grand +
+           saps12_religious + saps13_somaticdel + saps14_reference +
+           saps15_control + saps16_mind + saps17_broadcast +
+           saps18_insertion + saps19_withdrawal + saps21_appearance +
+           saps22_social + saps23_aggress + saps24_repetitive +
+           saps26_derailment + saps27_tangent + saps28_incoherence +
+           saps29_illogicality + saps30_circumstan +
+           saps31_pressured + saps32_distract + saps33_clanging) %>%
+  mutate(saps_global_total = saps07_global_hall + saps20_global_del +
+           saps25_global_biz + saps34_global_thought) %>% 
+  mutate(sanssaps_total = sans_item_total + saps_item_total)
+
+# Tibber 1st order factors - positive (tht disorder, biz beh, grand/rel, oth biz)
+dat_sanssaps <- dat_sanssaps %>% 
+  mutate(sanssaps_tht_dis_tib1a = saps26_derailment +
+           saps27_tangent + saps28_incoherence + saps29_illogicality +
+           saps30_circumstan + saps31_pressured + saps32_distract +
+           saps33_clanging + sans10_povcontent + sans24_statinattention) %>% 
+  mutate(sanssaps_biz_beh_tib1a = saps22_social + saps23_aggress) %>% 
+  mutate(sanssaps_grand_rel_tib1a = saps11_grand + saps12_religious +
+           saps22_social) %>%
+  mutate(sanssaps_oth_biz_tib1a = saps21_appearance + saps24_repetitive +
+           saps28_incoherence + sans14_hygiene) %>% 
+# Tibber 1st order factors - negative (neg, soc dys, alog/inattn)
+# (1a includes all, 1b excludes overlapping)
+  mutate(sanssaps_neg_tib1a = sans01_express + sans02_movement +
+           sans03_gestures + sans04_eye + sans05_respons +
+           sans06_vocal + sans09_povspeech + sans11_blocking +
+           sans12_latency + sans16_anergia + sans21_friends) %>% 
+  mutate(sanssaps_soc_dys_tib1a = sans14_hygiene +
+           sans15_impersist + sans16_anergia + sans18_recreate +
+           sans19_sexual + sans20_intimacy + sans21_friends 
+         + sans23_socinattention) %>% 
+  mutate(sanssaps_alog_inat_tib1a = sans09_povspeech +
+           sans10_povcontent + sans11_blocking + sans12_latency +
+           sans23_socinattention + sans24_statinattention) %>%
+  mutate(sanssaps_neg_tib1b = sans01_express + sans02_movement +
+           sans03_gestures + sans04_eye + sans05_respons +
+           sans06_vocal + sans09_povspeech + sans12_latency) %>%
+  mutate(sanssaps_soc_dys_tib1b = sans14_hygiene + sans15_impersist +
+           sans16_anergia + sans18_recreate + sans19_sexual +
+           sans20_intimacy + sans21_friends) %>% 
+  mutate(sanssaps_alog_inat_tib1b = sans10_povcontent +
+           sans11_blocking + sans23_socinattention +
+           sans24_statinattention) %>% 
+# Tibber 1st order factors - disorganization (delu, AH, other halluc)
+  mutate(sanssaps_delu_tib1a = saps14_reference +
+           saps15_control + saps16_mind + saps17_broadcast +
+           saps18_insertion + saps19_withdrawal) %>% 
+  mutate(sanssaps_aud_hall_tib1a = saps01_auditory +
+           saps02_comment + saps03_converse + saps17_broadcast) %>% 
+  mutate(sanssaps_oth_hall_tib1a = saps04_somatic +
+           saps05_olfactory + saps06_visual) %>% 
+# Tibber 2nd order factors - positive
+  mutate(sanssaps_pos_tib2 = (sanssaps_tht_dis_tib1a +
+                                sanssaps_biz_beh_tib1a +
+                                sanssaps_grand_rel_tib1a +
+                                sanssaps_oth_biz_tib1a)/19) %>% 
+#Tibber 2nd order factors - negative
+  mutate(sanssaps_neg_tib2 = (sanssaps_neg_tib1a +
+                                sanssaps_soc_dys_tib1a +
+                                sanssaps_alog_inat_tib1a)/25) %>% 
+  mutate(sanssaps_neg_tib2b = round(((sanssaps_neg_tib1b +
+                                        sanssaps_soc_dys_tib1b +
+                                        sanssaps_alog_inat_tib1b)/19),2)) %>% 
+# Tibber 2nd order factors - disorganized
+  mutate(sanssaps_disorg_tib2 = (sanssaps_delu_tib1a +
+                                   sanssaps_aud_hall_tib1a +
+                                   sanssaps_oth_hall_tib1a)/13)
+  
+dat_sanssaps <- dat_sanssaps %>%
+  select(
+    subj,
+    sanssaps_repeat_instance = redcap_repeat_instance,
+    sanssaps_date,
+    sans_global_total,
+    sans_item_total,
+    saps_global_total,
+    saps_item_total,
+    sanssaps_total,
+    sanssaps_pos_tib2, 
+    sanssaps_neg_tib2, 
+    sanssaps_neg_tib2b, 
+    sanssaps_disorg_tib2
+  )
+
+# match SANS-SAPS data to all behav data
+dat_behav <- merge(dat_behav, dat_sanssaps, by = "subj", all.x = TRUE)
+```
+
+## SPQ
+```{r, echo = FALSE, include = FALSE}
+### SPQ  -------------------
+# load in and clean data
+dat_spq <- read.csv("../data/nontask_data/clinical/step_spqbr_20250125.csv")
+dat_spq <- clean_data(dat_spq)
+dat_spq <- clean_rep_inst(dat_spq, "spqbr_date")
+
+# create dataframe with only target variables
+dat_spq <- dat_spq %>%
+  select(subj, spqbr_date, redcap_repeat_instance,
+         spqbr01_talking:spqbr32_unus_large) 
+colnames(dat_spq) <- c("subj", "spq_date", "spq_repeat_instance", paste0("spq_", 1:32))
+
+# calculate subscales
+dat_spq <- dat_spq %>% 
+  mutate(
+    spq_ir = spq_1 + spq_2 + spq_3, # ideas of reference
+    spq_s = spq_4 + spq_5 + spq_6, # suspiciousness
+    spq_cf = spq_7 + spq_8 + spq_9, # no close friends
+    spq_ca = spq_10 + spq_11 + spq_12,# constricted affect
+    spq_eb = spq_13 + spq_14 + spq_15 + spq_16, # eccentric behavior
+    spq_sa = spq_17 + spq_18 + spq_19 + spq_20, # social anxiety
+    spq_mt = spq_21 + spq_22 + spq_23 + spq_24, # magical thinking
+    spq_os = spq_25 + spq_26 + spq_27 + spq_28, # odd speech
+    spq_up = spq_29 + spq_30 + spq_31 + spq_32, # unusual perception
+    # subscales:
+    spq_cp = spq_ir + spq_s + spq_mt + spq_up, # cognitive perceptual
+    spq_do = spq_eb + spq_os, # disorganized
+    spq_ip = spq_cf + spq_ca + spq_sa, # interpersonal
+    spq_total = spq_cp + spq_do + spq_ip) # total
+
+# filter dataframe to only include total and subscales
+dat_spq <- dat_spq %>%
+  select(subj, spq_repeat_instance, spq_date, spq_total, spq_cp, spq_do, spq_ip)
+
+# match SPQ data to all behav data
+dat_behav <- merge(dat_behav, dat_spq, by = "subj", all.x = TRUE)
+```
+
+## GFS/GFR
+```{r, echo = FALSE, include = FALSE}
+### GFS/GFR  ------------------
+# load in and clean data
+dat_gf <- read.csv("../data/nontask_data/functioning/step_gfs-gfr_20250125.csv")
+dat_gf <- clean_data(dat_gf)
+dat_gf <- clean_rep_inst(dat_gf, "gbl_func_date")
+
+# create dataframe with only target variables
+dat_gf <- dat_gf %>%
+  select(
+    subj,
+    gf_repeat_instance = redcap_repeat_instance,
+    gf_date = gbl_func_date,
+    gfs = gbl_func_soc_curr,
+    gfr = gbl_func_role_curr
+  )
+
+# match GFS/GFR data to all behav data
+dat_behav <- merge(dat_behav, dat_gf, by = "subj", all.x = TRUE)
+```
+
+## IQ
+```{r, echo = FALSE, include = FALSE}
+### TMB IQ  ------------
+# Make sure to pull REDCap report "Test My Brain", to include tmb baseline date 
+dat_iq <- read.csv("../data/nontask_data/other_data/step_iq_20250125.csv")
+dat_iq <- clean_data(dat_iq)
+dat_iq <- clean_rep_inst(dat_iq, "tmb_baseline_date")
+
+# create dataframe with only target variables
+dat_iq <- dat_iq %>%
+  select(
+    subj,
+    iq_repeat_instance = redcap_repeat_instance, 
+    iq_date = tmb_baseline_date, 
+    iq = tmb_iq_estimate) 
+
+# replace TMB values which are invalid (<70) with WTAR estimates
+dat_iq[dat_iq$subj == "SP2014", "iq"] <- 98 #nonbinary, using Hispanic female estimate
+dat_iq[dat_iq$subj == "SP2150", "iq"] <- 102
+dat_iq[dat_iq$subj == "SP2199", "iq"] <- 99 #biracial, using Black estimate
+dat_iq[dat_iq$subj == "SP2263", "iq"] <- 91
+
+# match TMB-IQ data to all behav data
+dat_behav <- merge(dat_behav, dat_iq, by = "subj", all.x = TRUE)
+```
+
+## TOPX
+```{r, echo = FALSE, include = FALSE}
+### TOPX  ------------
+# # read in aggregate TOPX data 
+# dat_topx <- read.csv("../data/aggregated_data_20240802.csv")
+# dat_topx_bl1 <- filter(dat_topx, dat_topx$visit == "BL1")
+# dat_topx_bl1_wide <- dat_topx_bl1 %>%
+#   pivot_wider(id_cols = c(subj, task, visit, date, 
+#                           subj_type, d_context, d_expect),
+#               names_from = trial_type,
+#               values_from = c(n, numcorrect, rt_mean, rt_mdn, 
+#                               accuracy, accuracy_adj, error),
+#               names_vary = "slowest",
+#               names_glue = "{trial_type}_{.value}")
+# 
+# # match TOPX data to all behav data
+# dat_behav <- merge(dat_behav, dat_topx_bl1_wide, by = "subj", all.x = TRUE)
+
+```
+
+# Save behav dat file
+```{r, echo = FALSE, include = FALSE}
+# Save file ----------------
+write.csv(dat_behav,
+          file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_mri_behav/data/step_behav_dat_",
+                      gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
+#write.csv(dat_behav,file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_mri_ddm/data/step_behav_dat_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
+```
+
+# Descriptives - Pt/Ctl
+```{r}
+# number of patients and controls
+table(dat_behav$group)
+
+### create datasets by group ----------
+dat_behav_pt <- subset(dat_behav, group == "Patient") 
+dat_behav_ctl <- subset(dat_behav, group == "Control")
+nPt <- nrow(dat_behav_pt)
+nCtl <- nrow(dat_behav_ctl)
+```
+
+## Functions
+### Count + % table
+```{r, echo = FALSE}
+# function for count, %, and NA table - 2 split (pt/ctl)
+table_ct_pct_2split <- function(var) {
+  
+  # Calculate distribution and percentages for patients
+  count_pt <- table(dat_behav_pt[[var]])
+  pct_pt <- round((count_pt/nPt)*100, 2)
+  na_pt <- sum(is.na(dat_behav_pt[[var]]))
+  
+  # Calculate distribution and percentages for controls
+  count_ctl <- table(dat_behav_ctl[[var]])
+  pct_ctl <- round((count_ctl/nCtl)*100, 2)
+  na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
+  
+  # Create a summary table
+  summary <- tibble(
+    Group = c(rep("Patient", length(count_pt) + 1), 
+            rep("Control", length(count_ctl) + 1)),
+    Variable = c(names(count_pt), "NA", 
+             names(count_ctl), "NA"),
+    Count = c(as.numeric(count_pt), na_pt,
+            as.numeric(count_ctl), na_ctl),
+    Percentage = c(as.numeric(pct_pt), NA,
+                 as.numeric(pct_ctl), NA)
+    )
+  summary
+}
+```
+
+### M + SD table
+```{r, echo = FALSE}
+# function for mean, sd, and NA table - 2 split (pt/ctl)
+table_m_sd_2split <- function(var) {
+  
+  # Calculate mean and standard deviation for patients
+  mean_pt <- mean(dat_behav_pt[[var]], na.rm = TRUE)
+  sd_pt <- sd(dat_behav_pt[[var]], na.rm = TRUE)
+  
+  # Calculate mean and standard deviation for controls
+  mean_ctl <- mean(dat_behav_ctl[[var]], na.rm = TRUE)
+  sd_ctl <- sd(dat_behav_ctl[[var]], na.rm = TRUE)
+  
+  # Count missing values for patients and controls
+  na_pt <- sum(is.na(dat_behav_pt[[var]]))
+  na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
+  
+  # Create a summary table
+  summary <- tibble(
+    Group = c("Patient", "Control"),
+    Mean = c(round(mean_pt, 2), round(mean_ctl, 2)),
+    SD = c(round(sd_pt, 2), round(sd_ctl, 2)),
+    Missing_Values = c(na_pt, na_ctl)  # Add missing values count
+  )
+  summary
+}
+```
+
+### BPRS table - reg factors
+```{r, echo = FALSE}
+table_bprs <- function(data) {
+  summary <- tibble(
+    Variable = c("BPRS Positive", "BPRS Negative", 
+                 "BPRS Disorganized", "BPRS Mania", "BPRS Depression"),
+    Mean = c(
+      round(mean(data$bprs_positive, na.rm = TRUE), 2),
+      round(mean(data$bprs_negative, na.rm = TRUE), 2),
+      round(mean(data$bprs_disorganized, na.rm = TRUE), 2),
+      round(mean(data$bprs_mania, na.rm = TRUE), 2),
+      round(mean(data$bprs_depression, na.rm = TRUE), 2)),
+    SD = c(
+      round(sd(data$bprs_positive, na.rm = TRUE), 2),
+      round(sd(data$bprs_negative, na.rm = TRUE), 2),
+      round(sd(data$bprs_disorganized, na.rm = TRUE), 2),
+      round(sd(data$bprs_mania, na.rm = TRUE), 2),
+      round(sd(data$bprs_depression, na.rm = TRUE), 2))
+    )
+  summary
+}
+```
+
+### BPRS table - wilson-sponheim factors
+```{r, echo = FALSE}
+table_bprs_ws <- function(data) {
+  summary <- tibble(
+    Variable = c("BPRS Positive", "BPRS Negative", 
+                 "BPRS Disorganized", "BPRS Mania", "BPRS Depression"),
+    Mean = c(
+      round((mean(data$bprs_pos_ws, na.rm = TRUE)/5), 2),
+      round((mean(data$bprs_neg_ws, na.rm = TRUE)/3), 2),
+      round((mean(data$bprs_disorg_ws, na.rm = TRUE)/6), 2),
+      round((mean(data$bprs_mania_ws, na.rm = TRUE)/5), 2),
+      round((mean(data$bprs_dep_anx_ws, na.rm = TRUE)/4), 2)),
+    SD = c(
+      round((sd(data$bprs_pos_ws, na.rm = TRUE)/5), 2),
+      round((sd(data$bprs_neg_ws, na.rm = TRUE)/3), 2),
+      round((sd(data$bprs_disorg_ws, na.rm = TRUE)/6), 2),
+      round((sd(data$bprs_mania_ws, na.rm = TRUE)/5), 2),
+      round((sd(data$bprs_dep_anx_ws, na.rm = TRUE)/4), 2))
+    )
+  summary
+}
+```
+
+### SANS-SAPS table
+```{r}
+table_sanssaps <- function(data) {
+  summary <- tibble(
+    Variable = c("SANS-SAPS Total", "SAPS Positive", "SANS Negative", 
+                 "SANS Negative v2",  "SANS-SAPS Disorganized"),
+    Mean = c(
+      round(mean(data$sanssaps_total, na.rm = TRUE), 2),
+      round(mean(data$sanssaps_pos_tib2, na.rm = TRUE), 2),
+      round(mean(data$sanssaps_neg_tib2, na.rm = TRUE), 2),
+      round(mean(data$sanssaps_neg_tib2b, na.rm = TRUE), 2),
+      round(mean(data$sanssaps_disorg_tib2, na.rm = TRUE), 2)),
+    SD = c(
+      round(sd(data$sanssaps_total, na.rm = TRUE), 2),
+      round(sd(data$sanssaps_pos_tib2, na.rm = TRUE), 2),
+      round(sd(data$sanssaps_neg_tib2, na.rm = TRUE), 2),
+      round(sd(data$sanssaps_neg_tib2b, na.rm = TRUE), 2),
+      round(sd(data$sanssaps_disorg_tib2, na.rm = TRUE), 2))
+    )
+  summary
+}
+```
+
+## Demographics
+### Gender
+```{r}
+#gender: 1=man, 2=woman, 3=nonbinary/other
+table_ct_pct_2split("gender")
+# pt percentage NA (6/73)*100
+```
+
+
+### Age
+```{r}
+table_m_sd_2split("age")
+```
+
+### Race
+```{r}
+# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial
+table_ct_pct_2split("race")
+```
+
+
+### Hispanicity
+```{r}
+# manually changed SP1030 = yes, SP1097 = no, SP1099 = no
+table_ct_pct_2split("hispanic")
+```
+
+### Personal Education (Highest)
+```{r}
+table_m_sd_2split("subj_education")
+```
+
+### Caregiver Education (Highest)
+```{r}
+table_m_sd_2split("hi_caregiver_education")
+```
+
+### IQ
+```{r}
+table_m_sd_2split("iq")
+```
+
+## Clinical 
+### Diagnosis - 7 split
+```{r}
+# dx: 0=control, 1=Sz, 2=SzAff, 3=Szform, 4=NOS, 5=BP, 6=MDD, 7=other
+table_ct_pct_2split("primary_dx")
+```
+
+### Diagnosis - 5 split
+```{r}
+# dx: 0=control, 1=Sz, 2=SzAff, 3=Szform, 4=NOS, 5=BP, 6=MDD, 7=other
+table_ct_pct_2split("dx_5split")
+```
+
+### BPRS total
+```{r}
+table_m_sd_2split("bprs_total")
+```
+
+### BPRS - Pt
+```{r}
+#table_bprs(dat_behav_pt)
+table_bprs_ws(dat_behav_pt)
+```
+
+
+### BPRS - Ctl
+```{r}
+#table_bprs(dat_behav_ctl)
+table_bprs_ws(dat_behav_ctl)
+```
+
+### SANS-SAPS - Pt
+```{r}
+table_sanssaps(dat_behav_pt)
+# in paper, report negative, not negative v2 (v2 eliminates shared variables)
+```
+
+
+### Duration of untreated psychosis
+```{r}
+table_m_sd_2split("duration_of_psychosis")
+```
+# Group differences
+```{r}
+### demo group differences --------------
+# gender
+chisq.test(dat_behav$gender, dat_behav$group)
+
+# age
+# welch's two-sample t-test
+t.test(age ~ status_ppt_type, data = dat_behav)
+# student t-test (assumes equal variances)
+t.test(age ~ status_ppt_type, data = dat_behav, var.equal = TRUE)
+# test group variances to see if t-test are appropriate
+leveneTest(dat_behav$age, dat_behav$status_ppt_type, data = dat_behav)
+var.test(age ~ status_ppt_type, data = dat_behav)
+# wilcox aka mann-whitney U test
+wilcox.test(age ~ status_ppt_type, data = dat_behav)
+
+# race
+fisher.test(dat_behav$race, dat_behav$group)
+
+# ethnicity
+chisq.test(dat_behav$hispanic, dat_behav$group)
+
+# education
+t.test(subj_education ~ status_ppt_type, data = dat_behav)
+leveneTest(dat_behav$subj_education, dat_behav$status_ppt_type, data = dat_behav)
+var.test(subj_education ~ status_ppt_type, data = dat_behav)
+wilcox.test(subj_education ~ status_ppt_type, data = dat_behav)
+
+# education
+# leveneTest(dat_behav$mother_education, dat_behav$status_ppt_type, data = dat_behav)
+# var.test(mother_education ~ status_ppt_type, data = dat_behav)
+# t.test(mother_education ~ status_ppt_type, data = dat_behav)
+# wilcox.test(mother_education ~ status_ppt_type, data = dat_behav)
+# 
+# leveneTest(dat_behav$father_education, dat_behav$status_ppt_type, data = dat_behav)
+# var.test(father_education ~ status_ppt_type, data = dat_behav)
+# t.test(father_education ~ status_ppt_type, data = dat_behav)
+# wilcox.test(father_education ~ status_ppt_type, data = dat_behav)
+#
+t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav)
+
+# IQ
+leveneTest(dat_behav$iq, dat_behav$status_ppt_type, data = dat_behav)
+t.test(iq ~ status_ppt_type, data = dat_behav)
+wilcox.test(iq ~ status_ppt_type, data = dat_behav)
+
+# BPRS - total
+leveneTest(dat_behav$bprs_total, dat_behav$status_ppt_type, data = dat_behav)
+t.test(bprs_total ~ status_ppt_type, data = dat_behav)
+wilcox.test(bprs_total ~ status_ppt_type, data = dat_behav)
+
+# BPRS - positive
+leveneTest(dat_behav$bprs_pos_ws, dat_behav$status_ppt_type, data = dat_behav)
+t.test(bprs_pos_ws ~ status_ppt_type, data = dat_behav)
+wilcox.test(bprs_pos_ws ~ status_ppt_type, data = dat_behav)
+
+# BPRS - negative
+leveneTest(dat_behav$bprs_neg_ws, dat_behav$status_ppt_type, data = dat_behav)
+t.test(bprs_neg_ws ~ status_ppt_type, data = dat_behav)
+wilcox.test(bprs_neg_ws ~ status_ppt_type, data = dat_behav)
+
+# BPRS - disorg
+leveneTest(dat_behav$bprs_disorg_ws, dat_behav$status_ppt_type, data = dat_behav)
+t.test(bprs_disorg_ws ~ status_ppt_type, data = dat_behav)
+wilcox.test(bprs_disorg_ws ~ status_ppt_type, data = dat_behav) 
+
+# BPRS - mania
+leveneTest(dat_behav$bprs_mania_ws, dat_behav$status_ppt_type, data = dat_behav)
+t.test(bprs_mania_ws ~ status_ppt_type, data = dat_behav)
+wilcox.test(bprs_mania_ws ~ status_ppt_type, data = dat_behav) 
+
+# BPRS - depr/anx
+leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$status_ppt_type, data = dat_behav)
+t.test(bprs_dep_anx_ws ~ status_ppt_type, data = dat_behav)
+wilcox.test(bprs_dep_anx_ws ~ status_ppt_type, data = dat_behav) 
+```
+
+
+# Descriptives - Aff/NonAff
+```{r}
+# number of controls, Non-Affective, Affective
+# 0 = Control, 1 = Non-Affective, 2 = Affective
+table(dat_behav$dx_affect)
+
+### create datasets by group ----------
+# run above: dat_behav_ctl <- subset(dat_behav, group == "Control")
+# run above: nCtl <- nrow(dat_behav_ctl)
+dat_behav_na <- subset(dat_behav, dx_affect == 1) 
+dat_behav_aff <- subset(dat_behav, dx_affect == 2) 
+nPt_na <- nrow(dat_behav_na)
+nPt_aff <- nrow(dat_behav_aff)
+```
+
+## Functions
+### Count + % table
+```{r, echo = FALSE}
+# function for count, %, and NA table - 3 split (NA/Aff/ctl)
+table_ct_pct_3split <- function(var) {
+  
+  # Calculate distribution and percentages for NA patients
+  count_na <- table(dat_behav_na[[var]])
+  pct_na <- round((count_na/nPt_na)*100, 2)
+  na_na <- sum(is.na(dat_behav_na[[var]]))
+  
+  # Calculate distribution and percentages for Aff patients
+  count_aff <- table(dat_behav_aff[[var]])
+  pct_aff <- round((count_aff/nPt_aff)*100, 2)
+  na_aff <- sum(is.na(dat_behav_aff[[var]]))
+  
+  # Calculate distribution and percentages for controls
+  count_ctl <- table(dat_behav_ctl[[var]])
+  pct_ctl <- round((count_ctl/nCtl)*100, 2)
+  na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
+  
+  # Create a summary table
+  summary <- tibble(
+    Group = c(rep("NA", length(count_na) + 1), 
+              rep("Aff", length(count_aff) + 1), 
+              rep("Control", length(count_ctl) + 1)),
+    Variable = c(names(count_na), "NA", 
+                 names(count_aff), "NA",
+                 names(count_ctl), "NA"),
+    Count = c(as.numeric(count_na), na_na,
+              as.numeric(count_aff), na_aff,
+              as.numeric(count_ctl), na_ctl),
+    Percentage = c(as.numeric(pct_na), NA,
+                   as.numeric(pct_aff), NA,
+                   as.numeric(pct_ctl), NA)
+    )
+  summary
+}
+```
+
+### M + SD table
+```{r, echo = FALSE}
+# function for mean, sd, and NA table - 3 split (NA/Aff/ctl)
+table_m_sd_3split <- function(var) {
+  
+  # Calculate mean and standard deviation for non-affective
+  mean_na <- mean(dat_behav_na[[var]], na.rm = TRUE)
+  sd_na <- sd(dat_behav_na[[var]], na.rm = TRUE)
+  
+  # Calculate mean and standard deviation for affective
+  mean_aff <- mean(dat_behav_aff[[var]], na.rm = TRUE)
+  sd_aff <- sd(dat_behav_aff[[var]], na.rm = TRUE)
+  
+  # Calculate mean and standard deviation for controls
+  mean_ctl <- mean(dat_behav_ctl[[var]], na.rm = TRUE)
+  sd_ctl <- sd(dat_behav_ctl[[var]], na.rm = TRUE)
+  
+  # Count missing values
+  na_na <- sum(is.na(dat_behav_na[[var]]))
+  na_aff <- sum(is.na(dat_behav_aff[[var]]))
+  na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
+  
+  # Create a summary table
+  summary <- tibble(
+    Group = c("Non-Affective", "Affective", "Control"),
+    Mean = c(round(mean_na, 2), 
+                 round(mean_aff, 2),
+                 round(mean_ctl, 2)),
+    SD = c(round(sd_na, 2), 
+               round(sd_aff,2),
+               round(sd_ctl, 2)),
+    Missing_Values = c(na_na, na_aff, na_ctl)
+    )
+  summary
+}
+```
+
+## Demographics
+### Gender
+```{r}
+#gender: 1=man, 2=woman, 3=nonbinary/other
+table_ct_pct_3split("gender")
+```
+
+### Age
+```{r}
+table_m_sd_3split("age")
+```
+
+### Race
+```{r}
+# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial
+table_ct_pct_3split("race")
+```
+
+### Hispanicity
+```{r}
+table_ct_pct_3split("hispanic")
+```
+
+### Caregiver Education (Highest)
+```{r}
+table_m_sd_3split("hi_caregiver_education")
+```
+
+## Clinical
+### Diagnosis - 3 split (Affective/Non-affective)
+```{r}
+table_ct_pct_3split("dx_affect")
+```
+
+### Duration of untreated psychosis
+```{r}
+table_m_sd_3split("duration_of_psychosis")
+```
+
+### BPRS - NA
+```{r}
+table_bprs(dat_behav_na)
+```
+
+### BPRS - Aff
+```{r}
+table_bprs(dat_behav_aff)
+```
+
+### BPRS - Ctl
+```{r}
+table_bprs(dat_behav_ctl)
+```

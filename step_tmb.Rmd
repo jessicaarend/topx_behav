@@ -1,0 +1,108 @@
+---
+title: "STEP_TMB"
+author: "Jessica Arend"
+date: "2025-02-18"
+output: html_document
+---
+
+```{r}
+# clear workspace
+rm(list=ls())
+
+# read in packages
+pacman::p_load(dplyr, tidyr, jsonlite, stringr)
+  #stats, stringr, dplyr, tidyr, ggplot2, lme4, emmeans, lmerTest, Matrix, pbkrtest, psych, car, performance, parameters, data.table, tibble)
+
+# set working directory
+# STUTI WILL NEED TO CHANGE THIS TO HER LOCAL LOCATION
+setwd("~/Documents/umn_work/topx_analyses/")
+#knitr::opts_knit$set(root.dir = "/Users/arend103/Documents/umn_work/topx_analyses")
+```
+
+
+```{r cleaning TMB}
+# read in TMB data
+dat_tmb <- read.csv("~/Documents/umn_work/topx_analyses/data/nontask_data/other_data/tmb_data_20250125.csv")
+
+# split up "URL params" variable
+# STEP:
+### session: 1=Baseline, 2=6-Month, 3=7-Month, 4=12-Month
+### group: 1=in-person, 2=remote
+### user_id: SP1= control, SP2 = patient
+# rem-STEP:
+### session: 2=Baseline, 3=Post-Assessment, 4=Follow Up
+### group: 1=in-person; 2=remote
+### SR3 = remSTEP control, SR4 = remSTEP patient ???
+dat_tmb <- dat_tmb %>%
+  mutate(URL_params = lapply(URL_params, fromJSON)) %>%
+  unnest_wider(URL_params, names_repair = "unique") 
+
+# remove unnecessary variables
+dat_tmb <- dat_tmb %>% 
+  select("user_id", "battery_name", "battery_id", "start_time", "duration", "score", "outcomes", "session", "group")
+
+# subset data by test
+dat_tmb_vp <- filter(dat_tmb, battery_id == 1)
+dat_tmb_rw <- filter(dat_tmb, battery_id == 2)
+dat_tmb_ie <- filter(dat_tmb, battery_id == 3)
+
+# split up "outcomes" variable for each subset
+dat_tmb_vp <- dat_tmb_vp %>%
+  mutate(outcomes = lapply(outcomes, fromJSON)) %>%  # Convert JSON string to list
+  unnest_wider(outcomes, names_repair = "unique") 
+
+dat_tmb_rw <- dat_tmb_rw %>%
+  mutate(outcomes = lapply(outcomes, fromJSON)) %>%  # Convert JSON string to list
+  unnest_wider(outcomes, names_repair = "unique") 
+
+dat_tmb_ie <- dat_tmb_ie %>%
+  mutate(outcomes = lapply(outcomes, fromJSON)) %>%  # Convert JSON string to list
+  unnest_wider(outcomes, names_repair = "unique") 
+
+# prep VP for re-merge
+dat_tmb_vp$num_correct <- NA
+dat_tmb_vp$num_responses <- NA
+
+# prep IE for re-merge
+dat_tmb_ie2 <- dat_tmb_ie %>% 
+  select("user_id", "battery_name", "battery_id", "start_time", "duration", "score...6", "score...7",
+         "zScore_10_14", "zScore_15_19", "zScore_20_24", "zScore_25_29", "zScore_30_39", "zScore_40_49",
+         "zScore_50_64", "zScore_65_89", "zScore_10_89", "accuracy", "meanRTc", "medianRTc", "sdRTc",
+         "responseDevice", "testVersion", "session", "group")
+dat_tmb_ie2$num_correct <- NA
+dat_tmb_ie2$num_responses <- NA
+
+# merge subsets to full dataset
+dat_tmb <- rbind(dat_tmb_rw, dat_tmb_vp, dat_tmb_ie2)
+```
+
+# clean data
+```{r}
+# remove unnecessary variables
+dat_tmb <- dat_tmb %>% 
+  select(-c("score...7", "responseDevice", "testVersion"))
+
+# rename variables
+dat_tmb <- dat_tmb %>%
+  rename(subj = user_id, score = score...6)
+
+# fix ID errors
+dat_tmb <- dat_tmb %>%
+  mutate(across('subj', str_replace, 'SP1-69', 'SP1069')) %>% 
+  mutate(across('subj', str_replace, 'SP079', 'SP1079')) %>%
+  mutate(across('subj', str_replace, 'S1107', 'SP1107')) %>% 
+  mutate(across('subj', str_replace, 'P1038', 'SP1038')) %>% 
+  mutate(across('subj', str_replace, '2096', 'SP2096')) %>% 
+  mutate(across('subj', str_replace, 'SP2226R', 'SP2226')) %>% 
+  mutate(across('subj', str_replace, 'SP103', 'SP1035'))
+
+# filter rows to keep STEP ppts only (drop rem-STEP)
+dat_tmb <- dat_tmb %>%
+  filter(grepl("^SP1|^SP2", subj))
+# later - deal with:
+# SP2199A, SP2263A, SP2161A, SP2080A, SP1074_c_logs
+
+# filter rows to keep baseline data only 
+dat_tmb_bl <- dat_tmb %>%
+  filter(session==1)
+```

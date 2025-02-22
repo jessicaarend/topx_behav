@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+data/
+graphs/
+archive_scripts/
+.DS_Store
+

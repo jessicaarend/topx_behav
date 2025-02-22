@@ -1,0 +1,173 @@
+---
+title: "TOPX Learning Effects"
+author: "Jessica Arend"
+date: "2024-10-02"
+output: html_document
+---
+
+# Between BL1-BL2
+# Load in and prep data/workspace
+```{r, echo = FALSE}
+# clear workspace
+rm(list=ls())
+
+# set working directories
+pacman::p_load(dplyr, stringr, ggplot2, tidyr)
+
+# load in data
+dat <- read.csv("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_20240802.csv")
+View(dat)
+
+# subset by visit
+dat_bl1 <- dat %>% 
+  filter(visit == "BL1") 
+dat_bl2 <- dat %>% 
+  filter(visit == "BL2") 
+dat_6m <- dat %>% 
+  filter(visit == "6M") 
+dat_7m <- dat %>% 
+  filter(visit == "7M") 
+dat_12m <- dat %>% 
+  filter(visit == "12M") 
+
+# created new df with merged BL1 and BL2
+dat_bl1_rev <- subset(dat_bl1, (subj %in% dat_bl2$subj))
+dat_bl2_rev <- subset(dat_bl2, (subj %in% dat_bl1$subj))
+dat_bls <- rbind(dat_bl1_rev, dat_bl2_rev)
+
+# recode visit with numerical values
+# dat_bls <- dat_bls %>% 
+#   mutate(visit_num =  case_when(visit == "BL1" ~ 1,
+#                        visit == "BL2" ~ 2))
+```
+
+# Learning effects of error rates between BL1-BL2
+## Plot error rates
+```{r, echo = FALSE}
+ggplot(dat_bls, aes(x= trial_type, y=error, group = interaction(subj_type,visit))) + 
+  stat_summary(fun="mean", geom="line", aes(color = subj_type, linetype = visit), size = 1.5) + stat_summary(fun="mean", geom="point", aes(color = subj_type), size = 3) + stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = subj_type), width = 0.1, size = 1) + 
+  labs(title = "Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group", linetype = "Visit") +
+  coord_cartesian(ylim = c(0.05, .35)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Control", "EP")) + 
+  scale_linetype_manual(values = c("solid", "dotted"), 
+                        labels = c("Visit 1", "Visit 2")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+```
+
+# T-tests of error by trial, all participants
+```{r}
+# create function to subset by trial and run t-test across all ppts
+t_err_trial <- function(dat, trial) {
+  dat_subset <- dat[dat$trial_type == trial, ]
+  result <- t.test(dat_subset$error ~ dat_subset$visit)
+  return(result)}
+
+# run t-tests with function
+t_err_trial(dat_bls, "AX")
+t_err_trial(dat_bls, "AY")
+t_err_trial(dat_bls, "BX")
+t_err_trial(dat_bls, "BY")
+```
+
+# T-tests of error by trial and group
+```{r}
+# create function to subset by group and trial and run t-test
+t_err_trial_grp <- function(dat, trial, group) {
+  dat_subset <- dat[dat$trial_type == trial & dat$subj_type == group, ]
+  result <- t.test(dat_subset$error ~ dat_subset$visit)
+  return(result)}
+
+t_err_trial_grp(dat_bls, "AX", "Control")
+t_err_trial_grp(dat_bls, "AX", "Patient")
+t_err_trial_grp(dat_bls, "AY", "Control")
+t_err_trial_grp(dat_bls, "AY", "Patient")
+t_err_trial_grp(dat_bls, "BX", "Control")
+t_err_trial_grp(dat_bls, "BX", "Patient")
+t_err_trial_grp(dat_bls, "BY", "Control")
+t_err_trial_grp(dat_bls, "BY", "Patient")
+
+```
+
+# Learning effects of reaction times between BL1-BL2
+## Plot reaction times
+```{r, echo = FALSE}
+ggplot(dat_bls, aes(x= trial_type, y=rt_mdn, group = interaction(subj_type,visit))) + stat_summary(fun="mean", geom="line", 
+aes(color = subj_type, linetype = visit), size = 1.5) + stat_summary(fun="mean", geom="point", aes(color = subj_type), size = 3) + stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = subj_type), width = 0.1, size = 1) + 
+  labs(title = "Reaction Times (RT)", 
+       y = "RT (ms)", 
+       x = "Trial Type", color = "Group", linetype = "Visit") +
+  coord_cartesian(ylim = c(280, 600)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Control", "EP")) + 
+  scale_linetype_manual(values = c("solid", "dotted"), 
+                        labels = c("Visit 1", "Visit 2")) + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+```
+
+# T-tests of error by trial, all participants
+```{r}
+# create function to subset by trial and run t-test across all ppts
+t_rt_trial <- function(dat, trial) {
+  dat_subset <- dat[dat$trial_type == trial, ]
+  result <- t.test(dat_subset$rt_mdn ~ dat_subset$visit)
+  return(result)}
+
+# run t-tests with function
+t_rt_trial(dat_bls, "AX")
+t_rt_trial(dat_bls, "AY")
+t_rt_trial(dat_bls, "BX")
+t_rt_trial(dat_bls, "BY")
+```
+
+# T-tests of error by trial and group
+```{r}
+# create function to subset by group and trial and run t-test
+t_rt_trial_grp <- function(dat, trial, group) {
+  dat_subset <- dat[dat$trial_type == trial & dat$subj_type == group, ]
+  result <- t.test(dat_subset$rt_mdn ~ dat_subset$visit)
+  return(result)}
+
+t_rt_trial_grp(dat_bls, "AX", "Control")
+t_rt_trial_grp(dat_bls, "AX", "Patient")
+t_rt_trial_grp(dat_bls, "AY", "Control")
+t_rt_trial_grp(dat_bls, "AY", "Patient")
+t_rt_trial_grp(dat_bls, "BX", "Control")
+t_rt_trial_grp(dat_bls, "BX", "Patient")
+t_rt_trial_grp(dat_bls, "BY", "Control")
+t_rt_trial_grp(dat_bls, "BY", "Patient")
+
+```
+
+# Between blocks
+# Load in and prep data/workspace
+```{r, echo = FALSE}
+# load in data
+dat_blocks <- read.csv("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_byblock_20241002.csv")
+View(dat_blocks)
+
+# subset by visit
+dat_bl1_blocks <- dat_blocks %>% 
+  filter(visit == "BL1") 
+dat_bl2_blocks <- dat_blocks %>% 
+  filter(visit == "BL2") 
+```
