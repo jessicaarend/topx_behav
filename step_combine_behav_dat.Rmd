@@ -1,7 +1,7 @@
 ---
 title: "step_combine_dat"
 author: "Jessica Arend"
-date: "2025-02-11"
+date: "2025-02-22"
 output: html_document
 ---
 # Load, clean, combine data [hidden in output]
@@ -13,9 +13,9 @@ rm(list=ls())
 pacman::p_load(stats, stringr, dplyr, tidyr, ggplot2, lme4, emmeans, lmerTest, Matrix, pbkrtest, psych, car, performance, parameters, data.table, tibble)
 
 # set working directory and read in data
-# STUTI WILL NEED TO CHANGE THIS TO HER LOCAL LOCATION
 setwd("~/Documents/umn_work/topx_analyses/")
 ```
+
 ## Functions - cleaning
 ```{r, echo = FALSE, include = FALSE}
 ## function to remove test cases, fix name formatting -------
@@ -397,7 +397,9 @@ dat_behav <- merge(dat_behav, dat_iq, by = "subj", all.x = TRUE)
 write.csv(dat_behav,
           file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_mri_behav/data/step_behav_dat_",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
-#write.csv(dat_behav,file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_mri_ddm/data/step_behav_dat_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
+
+# save copy to DDM folder
+# write.csv(dat_behav,file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_mri_ddm/data/step_behav_dat_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 ```
 
 # Descriptives - Pt/Ctl
@@ -624,7 +626,8 @@ table_sanssaps(dat_behav_pt)
 ```{r}
 table_m_sd_2split("duration_of_psychosis")
 ```
-# Group differences
+
+## Group differences
 ```{r}
 ### demo group differences --------------
 # gender
@@ -647,23 +650,13 @@ fisher.test(dat_behav$race, dat_behav$group)
 # ethnicity
 chisq.test(dat_behav$hispanic, dat_behav$group)
 
-# education
+# participant education
 t.test(subj_education ~ status_ppt_type, data = dat_behav)
 leveneTest(dat_behav$subj_education, dat_behav$status_ppt_type, data = dat_behav)
 var.test(subj_education ~ status_ppt_type, data = dat_behav)
 wilcox.test(subj_education ~ status_ppt_type, data = dat_behav)
 
-# education
-# leveneTest(dat_behav$mother_education, dat_behav$status_ppt_type, data = dat_behav)
-# var.test(mother_education ~ status_ppt_type, data = dat_behav)
-# t.test(mother_education ~ status_ppt_type, data = dat_behav)
-# wilcox.test(mother_education ~ status_ppt_type, data = dat_behav)
-# 
-# leveneTest(dat_behav$father_education, dat_behav$status_ppt_type, data = dat_behav)
-# var.test(father_education ~ status_ppt_type, data = dat_behav)
-# t.test(father_education ~ status_ppt_type, data = dat_behav)
-# wilcox.test(father_education ~ status_ppt_type, data = dat_behav)
-#
+# caregiver education
 t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav)
 
 # IQ
