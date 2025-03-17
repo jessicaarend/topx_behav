@@ -112,7 +112,7 @@ dat_behav <- dat_demo
 
 ## optional: filter dat behav by another dataset
 ```{r}
-ddm_sample_subjx <- read.csv("~/Documents/umn_work/topx_analyses/topx_mri_ddm/data/topx_ddm_sample_subjx_20250125.csv")
+ddm_sample_subjx <- read.csv("~/Documents/umn_work/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20250316.csv")
 dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
 ```
 
@@ -395,7 +395,7 @@ dat_behav <- merge(dat_behav, dat_iq, by = "subj", all.x = TRUE)
 ```{r, echo = FALSE, include = FALSE}
 # Save file ----------------
 write.csv(dat_behav,
-          file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_mri_behav/data/step_behav_dat_",
+          file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_behav/data/step_behav_dat_",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # save copy to DDM folder
