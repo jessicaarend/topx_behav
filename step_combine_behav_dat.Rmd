@@ -63,6 +63,19 @@ dat_demo <- subset(dat_demo, select = -c(redcap_event_name, redcap_repeat_instru
 # recode gender into one variable, rather than two
 dat_demo$gender <- if_else(is.na(dat_demo$gender_cis), dat_demo$gender_trans, dat_demo$gender_cis)
 
+# fix missing gender variables for nonbinary ppts
+# dat_demo <- dat_demo %>%
+#   mutate(gender = case_when(
+#     subj %in% c("SP1030", "SP2014", "SP2112", 
+#                 "SP2120", "SP2197") ~ 3,  # Recode to 3
+#     TRUE ~ gender))
+
+# recode race NAs/other
+dat_demo <- dat_demo %>%
+  mutate(race = ifelse(is.na(race), 6, race))
+dat_demo <- dat_demo %>%
+  mutate(race_5split = ifelse(race == 6, 5, race))
+
 # recode "highest caregiver education" variable, taking highest of mother/father
 dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$mother_education, na.rm = TRUE)
 
@@ -112,8 +125,8 @@ dat_behav <- dat_demo
 
 ## optional: filter dat behav by another dataset
 ```{r}
-ddm_sample_subjx <- read.csv("~/Documents/umn_work/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20250316.csv")
-dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+# ddm_sample_subjx <- read.csv("~/Documents/umn_work/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20250316.csv")
+# dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
 ```
 
 ## BPRS
@@ -122,12 +135,16 @@ dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
 # download BPRS data from REDCap using "Data Exports" > "Selected Instruments or Events" >
     #  select "BPRS" & "Baseline" > export raw data as csv
 # load in and clean data
-dat_bprs <- read.csv("../data/nontask_data/clinical/BPRS_DATA_20240802.csv")
+dat_bprs <- read.csv("../data/nontask_data/clinical/bprs_data_20250317.csv")
 dat_bprs <- clean_data(dat_bprs)
 dat_bprs <- clean_rep_inst(dat_bprs, "bprs_date")
+dat_bprs <- dat_bprs %>%
+  mutate(across(c(bprs02_anxi, bprs03_depr, bprs14_diso, bprs18_motr, 
+                  bprs19_tens, bprs22_distr, bprs23_mohy, bprs24_mann), 
+                as.integer))
 
 dat_bprs <- dat_bprs %>% 
-  mutate(bprs_pos_ws = bprs08_gran + bprs09_susp + bprs10_hall + bprs11_unus + bprs12_bizb) %>% 
+  mutate(bprs_pos_ws = bprs08_gran + bprs09_susp + bprs10_hall + bprs11_unus + bprs12_bizb) %>%
   mutate(bprs_neg_ws = bprs16_blun + bprs17_emot + bprs18_motr) %>% 
   mutate(bprs_disorg_ws = bprs01_somc + bprs06_host + bprs13_self + 
            bprs14_diso + bprs15_conc + bprs20_unco) %>% 
@@ -395,11 +412,11 @@ dat_behav <- merge(dat_behav, dat_iq, by = "subj", all.x = TRUE)
 ```{r, echo = FALSE, include = FALSE}
 # Save file ----------------
 write.csv(dat_behav,
-          file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_behav/data/step_behav_dat_",
+          file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_behav/data/step_behav_dat",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # save copy to DDM folder
-# write.csv(dat_behav,file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_mri_ddm/data/step_behav_dat_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
+# write.csv(dat_behav,file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_ddm/data/step_behav_dat_for_ddm_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 ```
 
 # Descriptives - Pt/Ctl
@@ -422,12 +439,12 @@ table_ct_pct_2split <- function(var) {
   
   # Calculate distribution and percentages for patients
   count_pt <- table(dat_behav_pt[[var]])
-  pct_pt <- round((count_pt/nPt)*100, 2)
+  pct_pt <- round((count_pt/nPt)*100, 0)
   na_pt <- sum(is.na(dat_behav_pt[[var]]))
   
   # Calculate distribution and percentages for controls
   count_ctl <- table(dat_behav_ctl[[var]])
-  pct_ctl <- round((count_ctl/nCtl)*100, 2)
+  pct_ctl <- round((count_ctl/nCtl)*100, 0)
   na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
   
   # Create a summary table
@@ -469,7 +486,7 @@ table_m_sd_2split <- function(var) {
     SD = c(round(sd_pt, 2), round(sd_ctl, 2)),
     Missing_Values = c(na_pt, na_ctl)  # Add missing values count
   )
-  summary
+  summary %>% mutate(across(where(is.numeric), as.character)) # this is needed to report two digits
 }
 ```
 
@@ -558,10 +575,15 @@ table_m_sd_2split("age")
 
 ### Race
 ```{r}
-# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial
+# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6=unknown/other
 table_ct_pct_2split("race")
 ```
 
+### Race 5 split
+```{r}
+# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial/other
+table_ct_pct_2split("race_5split")
+```
 
 ### Hispanicity
 ```{r}
@@ -593,7 +615,7 @@ table_ct_pct_2split("primary_dx")
 
 ### Diagnosis - 5 split
 ```{r}
-# dx: 0=control, 1=Sz, 2=SzAff, 3=Szform, 4=NOS, 5=BP, 6=MDD, 7=other
+# dx: 0 = control, 1 = Sz/SzAff/Szform, 2 = BP, 3 = MDD, 4 = NOS/other
 table_ct_pct_2split("dx_5split")
 ```
 
@@ -630,11 +652,13 @@ table_m_sd_2split("duration_of_psychosis")
 ## Group differences
 ```{r}
 ### demo group differences --------------
-# gender
+# gender - report fisher
 chisq.test(dat_behav$gender, dat_behav$group)
+fisher.test(dat_behav$gender, dat_behav$group)
+
 
 # age
-# welch's two-sample t-test
+# welch's two-sample t-test - report this
 t.test(age ~ status_ppt_type, data = dat_behav)
 # student t-test (assumes equal variances)
 t.test(age ~ status_ppt_type, data = dat_behav, var.equal = TRUE)
@@ -644,24 +668,25 @@ var.test(age ~ status_ppt_type, data = dat_behav)
 # wilcox aka mann-whitney U test
 wilcox.test(age ~ status_ppt_type, data = dat_behav)
 
-# race
+# race - report fisher
+chisq.test(dat_behav$race, dat_behav$group)
 fisher.test(dat_behav$race, dat_behav$group)
 
 # ethnicity
 chisq.test(dat_behav$hispanic, dat_behav$group)
 
 # participant education
-t.test(subj_education ~ status_ppt_type, data = dat_behav)
+t.test(subj_education ~ status_ppt_type, data = dat_behav) #welch's
 leveneTest(dat_behav$subj_education, dat_behav$status_ppt_type, data = dat_behav)
 var.test(subj_education ~ status_ppt_type, data = dat_behav)
 wilcox.test(subj_education ~ status_ppt_type, data = dat_behav)
 
 # caregiver education
-t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav)
+t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav) # welch's
 
 # IQ
 leveneTest(dat_behav$iq, dat_behav$status_ppt_type, data = dat_behav)
-t.test(iq ~ status_ppt_type, data = dat_behav)
+t.test(iq ~ status_ppt_type, data = dat_behav) #welch's
 wilcox.test(iq ~ status_ppt_type, data = dat_behav)
 
 # BPRS - total
@@ -802,7 +827,7 @@ table_m_sd_3split("age")
 
 ### Race
 ```{r}
-# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial
+# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6=unknown/other
 table_ct_pct_3split("race")
 ```
 
