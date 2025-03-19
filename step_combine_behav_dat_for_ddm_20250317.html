@@ -367,8 +367,8 @@ display: none;
 </div>
 <div id="optional-filter-dat-behav-by-another-dataset" class="section level2">
 <h2>optional: filter dat behav by another dataset</h2>
-<pre class="r"><code># ddm_sample_subjx &lt;- read.csv(&quot;~/Documents/umn_work/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20250316.csv&quot;)
-# dat_behav &lt;- subset(dat_behav, subj %in% ddm_sample_subjx$subj)</code></pre>
+<pre class="r"><code>ddm_sample_subjx &lt;- read.csv(&quot;~/Documents/umn_work/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20250316.csv&quot;)
+dat_behav &lt;- subset(dat_behav, subj %in% ddm_sample_subjx$subj)</code></pre>
 </div>
 <div id="bprs" class="section level2">
 <h2>BPRS</h2>
@@ -398,7 +398,7 @@ display: none;
 table(dat_behav$group)</code></pre>
 <pre><code>## 
 ## Control Patient 
-##     111     123</code></pre>
+##      70      84</code></pre>
 <pre class="r"><code>### create datasets by group ----------
 dat_behav_pt &lt;- subset(dat_behav, group == &quot;Patient&quot;) 
 dat_behav_ctl &lt;- subset(dat_behav, group == &quot;Control&quot;)
@@ -450,13 +450,13 @@ table_ct_pct_2split(&quot;gender&quot;)</code></pre>
 <pre><code>## # A tibble: 8 × 4
 ##   Group   Variable Count Percentage
 ##   &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-## 1 Patient 1           57         46
-## 2 Patient 2           46         37
-## 3 Patient 3           12         10
-## 4 Patient NA           8         NA
-## 5 Control 1           54         49
-## 6 Control 2           48         43
-## 7 Control 3            9          8
+## 1 Patient 1           39         46
+## 2 Patient 2           28         33
+## 3 Patient 3           11         13
+## 4 Patient NA           6         NA
+## 5 Control 1           34         49
+## 6 Control 2           34         49
+## 7 Control 3            2          3
 ## 8 Control NA           0         NA</code></pre>
 <pre class="r"><code># pt percentage NA (6/73)*100</code></pre>
 </div>
@@ -466,50 +466,48 @@ table_ct_pct_2split(&quot;gender&quot;)</code></pre>
 <pre><code>## # A tibble: 2 × 4
 ##   Group   Mean  SD    Missing_Values
 ##   &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         
-## 1 Patient 25.45 4.89  0             
-## 2 Control 25.59 6.39  0</code></pre>
+## 1 Patient 25.43 5.04  0             
+## 2 Control 25.61 6.46  0</code></pre>
 </div>
 <div id="race" class="section level3">
 <h3>Race</h3>
 <pre class="r"><code># race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6=unknown/other
 table_ct_pct_2split(&quot;race&quot;)</code></pre>
-<pre><code>## # A tibble: 14 × 4
+<pre><code>## # A tibble: 13 × 4
 ##    Group   Variable Count Percentage
 ##    &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-##  1 Patient 0           87         71
-##  2 Patient 1           10          8
+##  1 Patient 0           59         70
+##  2 Patient 1            7          8
 ##  3 Patient 2            2          2
-##  4 Patient 3            7          6
-##  5 Patient 4            1          1
-##  6 Patient 5           14         11
-##  7 Patient 6            2          2
-##  8 Patient NA           0         NA
-##  9 Control 0           77         69
-## 10 Control 1            7          6
-## 11 Control 3           15         14
-## 12 Control 5            9          8
-## 13 Control 6            3          3
-## 14 Control NA           0         NA</code></pre>
+##  4 Patient 3            6          7
+##  5 Patient 5            9         11
+##  6 Patient 6            1          1
+##  7 Patient NA           0         NA
+##  8 Control 0           47         67
+##  9 Control 1            5          7
+## 10 Control 3           11         16
+## 11 Control 5            6          9
+## 12 Control 6            1          1
+## 13 Control NA           0         NA</code></pre>
 </div>
 <div id="race-5-split" class="section level3">
 <h3>Race 5 split</h3>
 <pre class="r"><code># race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial/other
 table_ct_pct_2split(&quot;race_5split&quot;)</code></pre>
-<pre><code>## # A tibble: 12 × 4
+<pre><code>## # A tibble: 11 × 4
 ##    Group   Variable Count Percentage
 ##    &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-##  1 Patient 0           87         71
-##  2 Patient 1           10          8
+##  1 Patient 0           59         70
+##  2 Patient 1            7          8
 ##  3 Patient 2            2          2
-##  4 Patient 3            7          6
-##  5 Patient 4            1          1
-##  6 Patient 5           16         13
-##  7 Patient NA           0         NA
-##  8 Control 0           77         69
-##  9 Control 1            7          6
-## 10 Control 3           15         14
-## 11 Control 5           12         11
-## 12 Control NA           0         NA</code></pre>
+##  4 Patient 3            6          7
+##  5 Patient 5           10         12
+##  6 Patient NA           0         NA
+##  7 Control 0           47         67
+##  8 Control 1            5          7
+##  9 Control 3           11         16
+## 10 Control 5            7         10
+## 11 Control NA           0         NA</code></pre>
 </div>
 <div id="hispanicity" class="section level3">
 <h3>Hispanicity</h3>
@@ -518,11 +516,11 @@ table_ct_pct_2split(&quot;hispanic&quot;)</code></pre>
 <pre><code>## # A tibble: 6 × 4
 ##   Group   Variable Count Percentage
 ##   &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-## 1 Patient 0          112         91
-## 2 Patient 1           11          9
+## 1 Patient 0           77         92
+## 2 Patient 1            7          8
 ## 3 Patient NA           0         NA
-## 4 Control 0           98         88
-## 5 Control 1           13         12
+## 4 Control 0           62         89
+## 5 Control 1            8         11
 ## 6 Control NA           0         NA</code></pre>
 </div>
 <div id="personal-education-highest" class="section level3">
@@ -531,8 +529,8 @@ table_ct_pct_2split(&quot;hispanic&quot;)</code></pre>
 <pre><code>## # A tibble: 2 × 4
 ##   Group   Mean  SD    Missing_Values
 ##   &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         
-## 1 Patient 13.96 1.92  0             
-## 2 Control 15.48 2.51  0</code></pre>
+## 1 Patient 14.01 1.95  0             
+## 2 Control 15.87 2.5   0</code></pre>
 </div>
 <div id="caregiver-education-highest" class="section level3">
 <h3>Caregiver Education (Highest)</h3>
@@ -540,8 +538,8 @@ table_ct_pct_2split(&quot;hispanic&quot;)</code></pre>
 <pre><code>## # A tibble: 2 × 4
 ##   Group   Mean  SD    Missing_Values
 ##   &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         
-## 1 Patient 15.61 2.82  0             
-## 2 Control 15.95 3.24  0</code></pre>
+## 1 Patient 15.74 3.01  0             
+## 2 Control 16.34 3.62  0</code></pre>
 </div>
 <div id="iq-1" class="section level3">
 <h3>IQ</h3>
@@ -549,8 +547,8 @@ table_ct_pct_2split(&quot;hispanic&quot;)</code></pre>
 <pre><code>## # A tibble: 2 × 4
 ##   Group   Mean   SD    Missing_Values
 ##   &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt; &lt;chr&gt;         
-## 1 Patient 99.17  10.3  20            
-## 2 Control 101.91 8.44  15</code></pre>
+## 1 Patient 99.56  10.57 0             
+## 2 Control 101.98 8.89  0</code></pre>
 </div>
 </div>
 <div id="clinical" class="section level2">
@@ -559,36 +557,34 @@ table_ct_pct_2split(&quot;hispanic&quot;)</code></pre>
 <h3>Diagnosis - 7 split</h3>
 <pre class="r"><code># dx: 0=control, 1=Sz, 2=SzAff, 3=Szform, 4=NOS, 5=BP, 6=MDD, 7=other
 table_ct_pct_2split(&quot;primary_dx&quot;)</code></pre>
-<pre><code>## # A tibble: 11 × 4
+<pre><code>## # A tibble: 10 × 4
 ##    Group   Variable Count Percentage
 ##    &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-##  1 Patient 0            1          1
-##  2 Patient 1           34         28
-##  3 Patient 2           21         17
-##  4 Patient 3            2          2
-##  5 Patient 4            9          7
-##  6 Patient 5           35         28
-##  7 Patient 6           16         13
-##  8 Patient 7            3          2
-##  9 Patient NA           2         NA
-## 10 Control 0          111        100
-## 11 Control NA           0         NA</code></pre>
+##  1 Patient 1           22         26
+##  2 Patient 2           14         17
+##  3 Patient 3            2          2
+##  4 Patient 4            6          7
+##  5 Patient 5           25         30
+##  6 Patient 6           14         17
+##  7 Patient 7            1          1
+##  8 Patient NA           0         NA
+##  9 Control 0           70        100
+## 10 Control NA           0         NA</code></pre>
 </div>
 <div id="diagnosis---5-split" class="section level3">
 <h3>Diagnosis - 5 split</h3>
 <pre class="r"><code># dx: 0 = control, 1 = Sz/SzAff/Szform, 2 = BP, 3 = MDD, 4 = NOS/other
 table_ct_pct_2split(&quot;dx_5split&quot;)</code></pre>
-<pre><code>## # A tibble: 8 × 4
+<pre><code>## # A tibble: 7 × 4
 ##   Group   Variable Count Percentage
 ##   &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-## 1 Patient 0            1          1
-## 2 Patient 1           57         46
-## 3 Patient 2           35         28
-## 4 Patient 3           16         13
-## 5 Patient 4           12         10
-## 6 Patient NA           2         NA
-## 7 Control 0          111        100
-## 8 Control NA           0         NA</code></pre>
+## 1 Patient 1           38         45
+## 2 Patient 2           25         30
+## 3 Patient 3           14         17
+## 4 Patient 4            7          8
+## 5 Patient NA           0         NA
+## 6 Control 0           70        100
+## 7 Control NA           0         NA</code></pre>
 </div>
 <div id="bprs-total" class="section level3">
 <h3>BPRS total</h3>
@@ -596,8 +592,8 @@ table_ct_pct_2split(&quot;dx_5split&quot;)</code></pre>
 <pre><code>## # A tibble: 2 × 4
 ##   Group   Mean  SD    Missing_Values
 ##   &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         
-## 1 Patient 44    10.93 7             
-## 2 Control 28.83 4.46  5</code></pre>
+## 1 Patient 42.81 10.75 1             
+## 2 Control 28.56 4.53  0</code></pre>
 </div>
 <div id="bprs---pt" class="section level3">
 <h3>BPRS - Pt</h3>
@@ -606,11 +602,11 @@ table_bprs_ws(dat_behav_pt)</code></pre>
 <pre><code>## # A tibble: 5 × 3
 ##   Variable           Mean    SD
 ##   &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt;
-## 1 BPRS Positive      1.91  0.85
-## 2 BPRS Negative      1.73  0.94
-## 3 BPRS Disorganized  1.74  0.51
-## 4 BPRS Mania         1.27  0.48
-## 5 BPRS Depression    2.83  1.15</code></pre>
+## 1 BPRS Positive      1.83  0.82
+## 2 BPRS Negative      1.7   1   
+## 3 BPRS Disorganized  1.66  0.49
+## 4 BPRS Mania         1.26  0.49
+## 5 BPRS Depression    2.75  1.16</code></pre>
 </div>
 <div id="bprs---ctl" class="section level3">
 <h3>BPRS - Ctl</h3>
@@ -619,11 +615,11 @@ table_bprs_ws(dat_behav_ctl)</code></pre>
 <pre><code>## # A tibble: 5 × 3
 ##   Variable           Mean    SD
 ##   &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt;
-## 1 BPRS Positive      1.04  0.11
-## 2 BPRS Negative      1.21  0.34
-## 3 BPRS Disorganized  1.23  0.27
-## 4 BPRS Mania         1.04  0.11
-## 5 BPRS Depression    1.53  0.66</code></pre>
+## 1 BPRS Positive      1.03  0.1 
+## 2 BPRS Negative      1.19  0.33
+## 3 BPRS Disorganized  1.22  0.28
+## 4 BPRS Mania         1.05  0.13
+## 5 BPRS Depression    1.48  0.61</code></pre>
 </div>
 <div id="sans-saps---pt" class="section level3">
 <h3>SANS-SAPS - Pt</h3>
@@ -631,11 +627,11 @@ table_bprs_ws(dat_behav_ctl)</code></pre>
 <pre><code>## # A tibble: 5 × 3
 ##   Variable                Mean    SD
 ##   &lt;chr&gt;                  &lt;dbl&gt; &lt;dbl&gt;
-## 1 SANS-SAPS Total        27.8  17.3 
-## 2 SAPS Positive           0.31  0.27
-## 3 SANS Negative           0.9   0.64
-## 4 SANS Negative v2        0.93  0.66
-## 5 SANS-SAPS Disorganized  0.42  0.5</code></pre>
+## 1 SANS-SAPS Total        26.0  17.4 
+## 2 SAPS Positive           0.29  0.26
+## 3 SANS Negative           0.85  0.65
+## 4 SANS Negative v2        0.88  0.67
+## 5 SANS-SAPS Disorganized  0.39  0.46</code></pre>
 <pre class="r"><code># in paper, report negative, not negative v2 (v2 eliminates shared variables)</code></pre>
 </div>
 <div id="duration-of-untreated-psychosis" class="section level3">
@@ -644,8 +640,8 @@ table_bprs_ws(dat_behav_ctl)</code></pre>
 <pre><code>## # A tibble: 2 × 4
 ##   Group   Mean  SD    Missing_Values
 ##   &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;         
-## 1 Patient 6.52  5.28  1             
-## 2 Control NaN   &lt;NA&gt;  111</code></pre>
+## 1 Patient 5.64  4.5   0             
+## 2 Control NaN   &lt;NA&gt;  70</code></pre>
 </div>
 </div>
 <div id="group-differences" class="section level2">
@@ -657,13 +653,13 @@ chisq.test(dat_behav$gender, dat_behav$group)</code></pre>
 ##  Pearson&#39;s Chi-squared test
 ## 
 ## data:  dat_behav$gender and dat_behav$group
-## X-squared = 0.48156, df = 2, p-value = 0.786</code></pre>
+## X-squared = 6.7411, df = 2, p-value = 0.03437</code></pre>
 <pre class="r"><code>fisher.test(dat_behav$gender, dat_behav$group)</code></pre>
 <pre><code>## 
 ##  Fisher&#39;s Exact Test for Count Data
 ## 
 ## data:  dat_behav$gender and dat_behav$group
-## p-value = 0.7855
+## p-value = 0.03157
 ## alternative hypothesis: two.sided</code></pre>
 <pre class="r"><code># age
 # welch&#39;s two-sample t-test - report this
@@ -672,55 +668,53 @@ t.test(age ~ status_ppt_type, data = dat_behav)</code></pre>
 ##  Welch Two Sample t-test
 ## 
 ## data:  age by status_ppt_type
-## t = 0.19659, df = 205.16, p-value = 0.8443
+## t = 0.19601, df = 129.14, p-value = 0.8449
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -1.331257  1.626137
+##  -1.688874  2.060303
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        25.59459        25.44715</code></pre>
+##        25.61429        25.42857</code></pre>
 <pre class="r"><code># student t-test (assumes equal variances)
 t.test(age ~ status_ppt_type, data = dat_behav, var.equal = TRUE)</code></pre>
 <pre><code>## 
 ##  Two Sample t-test
 ## 
 ## data:  age by status_ppt_type
-## t = 0.19926, df = 232, p-value = 0.8422
+## t = 0.20042, df = 152, p-value = 0.8414
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -1.310409  1.605289
+##  -1.645005  2.016434
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        25.59459        25.44715</code></pre>
+##        25.61429        25.42857</code></pre>
 <pre class="r"><code># test group variances to see if t-test are appropriate
 leveneTest(dat_behav$age, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## Warning in leveneTest.default(dat_behav$age, dat_behav$status_ppt_type, :
 ## dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
-##        Df F value Pr(&gt;F)  
-## group   1  4.6273 0.0325 *
-##       232                 
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+##        Df F value Pr(&gt;F)
+## group   1  1.6088 0.2066
+##       152</code></pre>
 <pre class="r"><code>var.test(age ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  F test to compare two variances
 ## 
 ## data:  age by status_ppt_type
-## F = 1.7113, num df = 110, denom df = 122, p-value = 0.003948
+## F = 1.6426, num df = 69, denom df = 83, p-value = 0.03082
 ## alternative hypothesis: true ratio of variances is not equal to 1
 ## 95 percent confidence interval:
-##  1.188554 2.472516
+##  1.047155 2.601582
 ## sample estimates:
 ## ratio of variances 
-##           1.711262</code></pre>
+##           1.642594</code></pre>
 <pre class="r"><code># wilcox aka mann-whitney U test
 wilcox.test(age ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  age by status_ppt_type
-## W = 6489.5, p-value = 0.5144
+## W = 2786, p-value = 0.5768
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># race - report fisher
 chisq.test(dat_behav$race, dat_behav$group)</code></pre>
@@ -730,13 +724,13 @@ chisq.test(dat_behav$race, dat_behav$group)</code></pre>
 ##  Pearson&#39;s Chi-squared test
 ## 
 ## data:  dat_behav$race and dat_behav$group
-## X-squared = 7.7402, df = 6, p-value = 0.2578</code></pre>
+## X-squared = 4.5271, df = 5, p-value = 0.4763</code></pre>
 <pre class="r"><code>fisher.test(dat_behav$race, dat_behav$group)</code></pre>
 <pre><code>## 
 ##  Fisher&#39;s Exact Test for Count Data
 ## 
 ## data:  dat_behav$race and dat_behav$group
-## p-value = 0.2536
+## p-value = 0.512
 ## alternative hypothesis: two.sided</code></pre>
 <pre class="r"><code># ethnicity
 chisq.test(dat_behav$hispanic, dat_behav$group)</code></pre>
@@ -744,47 +738,45 @@ chisq.test(dat_behav$hispanic, dat_behav$group)</code></pre>
 ##  Pearson&#39;s Chi-squared test with Yates&#39; continuity correction
 ## 
 ## data:  dat_behav$hispanic and dat_behav$group
-## X-squared = 0.23165, df = 1, p-value = 0.6303</code></pre>
+## X-squared = 0.13849, df = 1, p-value = 0.7098</code></pre>
 <pre class="r"><code># participant education
 t.test(subj_education ~ status_ppt_type, data = dat_behav) #welch&#39;s</code></pre>
 <pre><code>## 
 ##  Welch Two Sample t-test
 ## 
 ## data:  subj_education by status_ppt_type
-## t = 5.1503, df = 204.89, p-value = 6.089e-07
+## t = 5.0687, df = 128.97, p-value = 1.358e-06
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  0.9369704 2.0992854
+##  1.133678 2.585370
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        15.47748        13.95935</code></pre>
+##        15.87143        14.01190</code></pre>
 <pre class="r"><code>leveneTest(dat_behav$subj_education, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## Warning in leveneTest.default(dat_behav$subj_education,
 ## dat_behav$status_ppt_type, : dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
-##        Df F value  Pr(&gt;F)  
-## group   1  3.6843 0.05615 .
-##       232                  
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+##        Df F value Pr(&gt;F)
+## group   1  0.8999 0.3443
+##       152</code></pre>
 <pre class="r"><code>var.test(subj_education ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  F test to compare two variances
 ## 
 ## data:  subj_education by status_ppt_type
-## F = 1.7192, num df = 110, denom df = 122, p-value = 0.003649
+## F = 1.6492, num df = 69, denom df = 83, p-value = 0.02951
 ## alternative hypothesis: true ratio of variances is not equal to 1
 ## 95 percent confidence interval:
-##  1.194092 2.484038
+##  1.051336 2.611969
 ## sample estimates:
 ## ratio of variances 
-##           1.719236</code></pre>
+##           1.649152</code></pre>
 <pre class="r"><code>wilcox.test(subj_education ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  subj_education by status_ppt_type
-## W = 9266.5, p-value = 1.654e-06
+## W = 4202.5, p-value = 3.288e-06
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># caregiver education
 t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav) # welch&#39;s</code></pre>
@@ -792,21 +784,21 @@ t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav) # welch&#39;s
 ##  Welch Two Sample t-test
 ## 
 ## data:  hi_caregiver_education by status_ppt_type
-## t = 0.86453, df = 219.52, p-value = 0.3882
+## t = 1.114, df = 134.27, p-value = 0.2673
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -0.4417392  1.1321369
+##  -0.4689496  1.6784734
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        15.95495        15.60976</code></pre>
+##        16.34286        15.73810</code></pre>
 <pre class="r"><code># IQ
 leveneTest(dat_behav$iq, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## Warning in leveneTest.default(dat_behav$iq, dat_behav$status_ppt_type, data =
 ## dat_behav): dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
 ##        Df F value  Pr(&gt;F)  
-## group   1  5.6118 0.01881 *
-##       197                  
+## group   1  3.2555 0.07317 .
+##       152                  
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>t.test(iq ~ status_ppt_type, data = dat_behav) #welch&#39;s</code></pre>
@@ -814,19 +806,19 @@ leveneTest(dat_behav$iq, dat_behav$status_ppt_type, data = dat_behav)</code></pr
 ##  Welch Two Sample t-test
 ## 
 ## data:  iq by status_ppt_type
-## t = 2.0605, df = 193.88, p-value = 0.04069
+## t = 1.5474, df = 151.98, p-value = 0.1238
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  0.1174895 5.3698588
+##  -0.671531  5.524626
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##       101.91406        99.17039</code></pre>
+##       101.98429        99.55774</code></pre>
 <pre class="r"><code>wilcox.test(iq ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  iq by status_ppt_type
-## W = 5719.5, p-value = 0.05613
+## W = 3339, p-value = 0.148
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># BPRS - total
 leveneTest(dat_behav$bprs_total, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
@@ -834,8 +826,8 @@ leveneTest(dat_behav$bprs_total, dat_behav$status_ppt_type, data = dat_behav)</c
 ## : dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
 ##        Df F value    Pr(&gt;F)    
-## group   1  54.123 3.693e-12 ***
-##       220                      
+## group   1  29.928 1.821e-07 ***
+##       151                      
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>t.test(bprs_total ~ status_ppt_type, data = dat_behav)</code></pre>
@@ -843,19 +835,19 @@ leveneTest(dat_behav$bprs_total, dat_behav$status_ppt_type, data = dat_behav)</c
 ##  Welch Two Sample t-test
 ## 
 ## data:  bprs_total by status_ppt_type
-## t = -13.748, df = 155.01, p-value &lt; 2.2e-16
+## t = -10.975, df = 114.18, p-value &lt; 2.2e-16
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -17.34956 -12.99006
+##  -16.82218 -11.67799
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        28.83019        44.00000</code></pre>
+##        28.55714        42.80723</code></pre>
 <pre class="r"><code>wilcox.test(bprs_total ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  bprs_total by status_ppt_type
-## W = 1025.5, p-value &lt; 2.2e-16
+## W = 531.5, p-value &lt; 2.2e-16
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># BPRS - positive
 leveneTest(dat_behav$bprs_pos_ws, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
@@ -863,8 +855,8 @@ leveneTest(dat_behav$bprs_pos_ws, dat_behav$status_ppt_type, data = dat_behav)</
 ## : dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
 ##        Df F value    Pr(&gt;F)    
-## group   1  103.83 &lt; 2.2e-16 ***
-##       230                      
+## group   1  59.808 1.338e-12 ***
+##       152                      
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>t.test(bprs_pos_ws ~ status_ppt_type, data = dat_behav)</code></pre>
@@ -872,19 +864,19 @@ leveneTest(dat_behav$bprs_pos_ws, dat_behav$status_ppt_type, data = dat_behav)</
 ##  Welch Two Sample t-test
 ## 
 ## data:  bprs_pos_ws by status_ppt_type
-## t = -11.208, df = 124.52, p-value &lt; 2.2e-16
+## t = -8.8557, df = 85.816, p-value = 9.839e-14
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -5.145830 -3.601247
+##  -4.912527 -3.111283
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        5.180180        9.553719</code></pre>
+##        5.142857        9.154762</code></pre>
 <pre class="r"><code>wilcox.test(bprs_pos_ws ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  bprs_pos_ws by status_ppt_type
-## W = 1435.5, p-value &lt; 2.2e-16
+## W = 646, p-value &lt; 2.2e-16
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># BPRS - negative
 leveneTest(dat_behav$bprs_neg_ws, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
@@ -892,8 +884,8 @@ leveneTest(dat_behav$bprs_neg_ws, dat_behav$status_ppt_type, data = dat_behav)</
 ## : dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
 ##        Df F value    Pr(&gt;F)    
-## group   1  30.827 7.816e-08 ***
-##       228                      
+## group   1  19.063 2.336e-05 ***
+##       151                      
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>t.test(bprs_neg_ws ~ status_ppt_type, data = dat_behav)</code></pre>
@@ -901,19 +893,19 @@ leveneTest(dat_behav$bprs_neg_ws, dat_behav$status_ppt_type, data = dat_behav)</
 ##  Welch Two Sample t-test
 ## 
 ## data:  bprs_neg_ws by status_ppt_type
-## t = -5.6499, df = 153.8, p-value = 7.571e-08
+## t = -4.4508, df = 102.57, p-value = 2.18e-05
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -2.102716 -1.013214
+##  -2.2425820 -0.8599997
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        3.623853        5.181818</code></pre>
+##        3.557143        5.108434</code></pre>
 <pre class="r"><code>wilcox.test(bprs_neg_ws ~ status_ppt_type, data = dat_behav)</code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  bprs_neg_ws by status_ppt_type
-## W = 4386, p-value = 2.275e-06
+## W = 1973.5, p-value = 0.0002007
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># BPRS - disorg
 leveneTest(dat_behav$bprs_disorg_ws, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
@@ -921,8 +913,8 @@ leveneTest(dat_behav$bprs_disorg_ws, dat_behav$status_ppt_type, data = dat_behav
 ## dat_behav$status_ppt_type, : dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
 ##        Df F value    Pr(&gt;F)    
-## group   1  33.045 2.872e-08 ***
-##       228                      
+## group   1  17.525 4.783e-05 ***
+##       152                      
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>t.test(bprs_disorg_ws ~ status_ppt_type, data = dat_behav)</code></pre>
@@ -930,19 +922,19 @@ leveneTest(dat_behav$bprs_disorg_ws, dat_behav$status_ppt_type, data = dat_behav
 ##  Welch Two Sample t-test
 ## 
 ## data:  bprs_disorg_ws by status_ppt_type
-## t = -9.7526, df = 184.77, p-value &lt; 2.2e-16
+## t = -7.0904, df = 136.08, p-value = 6.612e-11
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -3.733133 -2.476891
+##  -3.404329 -1.919480
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        7.357798       10.462810</code></pre>
+##        7.314286        9.976190</code></pre>
 <pre class="r"><code>wilcox.test(bprs_disorg_ws ~ status_ppt_type, data = dat_behav) </code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  bprs_disorg_ws by status_ppt_type
-## W = 2447.5, p-value &lt; 2.2e-16
+## W = 1223, p-value = 2.615e-10
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># BPRS - mania
 leveneTest(dat_behav$bprs_mania_ws, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
@@ -950,8 +942,8 @@ leveneTest(dat_behav$bprs_mania_ws, dat_behav$status_ppt_type, data = dat_behav)
 ## dat_behav$status_ppt_type, : dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
 ##        Df F value    Pr(&gt;F)    
-## group   1  23.563 2.254e-06 ***
-##       226                      
+## group   1  12.514 0.0005368 ***
+##       151                      
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>t.test(bprs_mania_ws ~ status_ppt_type, data = dat_behav)</code></pre>
@@ -959,19 +951,19 @@ leveneTest(dat_behav$bprs_mania_ws, dat_behav$status_ppt_type, data = dat_behav)
 ##  Welch Two Sample t-test
 ## 
 ## data:  bprs_mania_ws by status_ppt_type
-## t = -5.092, df = 132.24, p-value = 1.193e-06
+## t = -3.8114, df = 95.238, p-value = 0.000245
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -1.6070236 -0.7077912
+##  -1.612993 -0.508177
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        5.175926        6.333333</code></pre>
+##        5.228571        6.289157</code></pre>
 <pre class="r"><code>wilcox.test(bprs_mania_ws ~ status_ppt_type, data = dat_behav) </code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  bprs_mania_ws by status_ppt_type
-## W = 4634.5, p-value = 1.833e-06
+## W = 2209.5, p-value = 0.001177
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 <pre class="r"><code># BPRS - depr/anx
 leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$status_ppt_type, data = dat_behav)</code></pre>
@@ -979,8 +971,8 @@ leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$status_ppt_type, data = dat_beha
 ## dat_behav$status_ppt_type, : dat_behav$status_ppt_type coerced to factor.</code></pre>
 <pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median: dat_behav)
 ##        Df F value    Pr(&gt;F)    
-## group   1  39.142 1.928e-09 ***
-##       228                      
+## group   1  35.219 1.919e-08 ***
+##       152                      
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <pre class="r"><code>t.test(bprs_dep_anx_ws ~ status_ppt_type, data = dat_behav)</code></pre>
@@ -988,19 +980,19 @@ leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$status_ppt_type, data = dat_beha
 ##  Welch Two Sample t-test
 ## 
 ## data:  bprs_dep_anx_ws by status_ppt_type
-## t = -10.647, df = 192.17, p-value &lt; 2.2e-16
+## t = -8.7033, df = 130.68, p-value = 1.206e-14
 ## alternative hypothesis: true difference in means between group 1 and group 2 is not equal to 0
 ## 95 percent confidence interval:
-##  -6.172322 -4.242830
+##  -6.238787 -3.927880
 ## sample estimates:
 ## mean in group 1 mean in group 2 
-##        6.109091       11.316667</code></pre>
+##        5.928571       11.011905</code></pre>
 <pre class="r"><code>wilcox.test(bprs_dep_anx_ws ~ status_ppt_type, data = dat_behav) </code></pre>
 <pre><code>## 
 ##  Wilcoxon rank sum test with continuity correction
 ## 
 ## data:  bprs_dep_anx_ws by status_ppt_type
-## W = 2322.5, p-value &lt; 2.2e-16
+## W = 1057.5, p-value = 5.518e-12
 ## alternative hypothesis: true location shift is not equal to 0</code></pre>
 </div>
 </div>
@@ -1010,8 +1002,8 @@ leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$status_ppt_type, data = dat_beha
 # 0 = Control, 1 = Non-Affective, 2 = Affective
 table(dat_behav$dx_affect)</code></pre>
 <pre><code>## 
-##   0   1   2 
-## 112  69  51</code></pre>
+##  0  1  2 
+## 70 45 39</code></pre>
 <pre class="r"><code>### create datasets by group ----------
 # run above: dat_behav_ctl &lt;- subset(dat_behav, group == &quot;Control&quot;)
 # run above: nCtl &lt;- nrow(dat_behav_ctl)
@@ -1037,17 +1029,17 @@ table_ct_pct_3split(&quot;gender&quot;)</code></pre>
 <pre><code>## # A tibble: 12 × 4
 ##    Group   Variable Count Percentage
 ##    &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-##  1 NA      1           32      46.4 
-##  2 NA      2           21      30.4 
-##  3 NA      3            8      11.6 
-##  4 NA      NA           8      NA   
-##  5 Aff     1           24      47.1 
-##  6 Aff     2           23      45.1 
-##  7 Aff     3            4       7.84
+##  1 NA      1           23      51.1 
+##  2 NA      2            8      17.8 
+##  3 NA      3            8      17.8 
+##  4 NA      NA           6      NA   
+##  5 Aff     1           16      41.0 
+##  6 Aff     2           20      51.3 
+##  7 Aff     3            3       7.69
 ##  8 Aff     NA           0      NA   
-##  9 Control 1           54      48.6 
-## 10 Control 2           48      43.2 
-## 11 Control 3            9       8.11
+##  9 Control 1           34      48.6 
+## 10 Control 2           34      48.6 
+## 11 Control 3            2       2.86
 ## 12 Control NA           0      NA</code></pre>
 </div>
 <div id="age-1" class="section level3">
@@ -1056,37 +1048,36 @@ table_ct_pct_3split(&quot;gender&quot;)</code></pre>
 <pre><code>## # A tibble: 3 × 4
 ##   Group          Mean    SD Missing_Values
 ##   &lt;chr&gt;         &lt;dbl&gt; &lt;dbl&gt;          &lt;int&gt;
-## 1 Non-Affective  25.3  5.02              0
-## 2 Affective      25.8  4.82              0
-## 3 Control        25.6  6.39              0</code></pre>
+## 1 Non-Affective  25.2  5.27              0
+## 2 Affective      25.6  4.81              0
+## 3 Control        25.6  6.46              0</code></pre>
 </div>
 <div id="race-1" class="section level3">
 <h3>Race</h3>
 <pre class="r"><code># race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6=unknown/other
 table_ct_pct_3split(&quot;race&quot;)</code></pre>
-<pre><code>## # A tibble: 20 × 4
+<pre><code>## # A tibble: 19 × 4
 ##    Group   Variable Count Percentage
 ##    &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-##  1 NA      0           51      73.9 
-##  2 NA      1            5       7.25
-##  3 NA      2            1       1.45
-##  4 NA      3            2       2.9 
-##  5 NA      4            1       1.45
-##  6 NA      5            9      13.0 
-##  7 NA      NA           0      NA   
-##  8 Aff     0           33      64.7 
-##  9 Aff     1            5       9.8 
-## 10 Aff     2            1       1.96
-## 11 Aff     3            5       9.8 
-## 12 Aff     5            5       9.8 
-## 13 Aff     6            2       3.92
-## 14 Aff     NA           0      NA   
-## 15 Control 0           77      69.4 
-## 16 Control 1            7       6.31
-## 17 Control 3           15      13.5 
-## 18 Control 5            9       8.11
-## 19 Control 6            3       2.7 
-## 20 Control NA           0      NA</code></pre>
+##  1 NA      0           34      75.6 
+##  2 NA      1            2       4.44
+##  3 NA      2            1       2.22
+##  4 NA      3            2       4.44
+##  5 NA      5            6      13.3 
+##  6 NA      NA           0      NA   
+##  7 Aff     0           25      64.1 
+##  8 Aff     1            5      12.8 
+##  9 Aff     2            1       2.56
+## 10 Aff     3            4      10.3 
+## 11 Aff     5            3       7.69
+## 12 Aff     6            1       2.56
+## 13 Aff     NA           0      NA   
+## 14 Control 0           47      67.1 
+## 15 Control 1            5       7.14
+## 16 Control 3           11      15.7 
+## 17 Control 5            6       8.57
+## 18 Control 6            1       1.43
+## 19 Control NA           0      NA</code></pre>
 </div>
 <div id="hispanicity-1" class="section level3">
 <h3>Hispanicity</h3>
@@ -1094,15 +1085,15 @@ table_ct_pct_3split(&quot;race&quot;)</code></pre>
 <pre><code>## # A tibble: 9 × 4
 ##   Group   Variable Count Percentage
 ##   &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-## 1 NA      0           65       94.2
-## 2 NA      1            4        5.8
-## 3 NA      NA           0       NA  
-## 4 Aff     0           44       86.3
-## 5 Aff     1            7       13.7
-## 6 Aff     NA           0       NA  
-## 7 Control 0           98       88.3
-## 8 Control 1           13       11.7
-## 9 Control NA           0       NA</code></pre>
+## 1 NA      0           42      93.3 
+## 2 NA      1            3       6.67
+## 3 NA      NA           0      NA   
+## 4 Aff     0           35      89.7 
+## 5 Aff     1            4      10.3 
+## 6 Aff     NA           0      NA   
+## 7 Control 0           62      88.6 
+## 8 Control 1            8      11.4 
+## 9 Control NA           0      NA</code></pre>
 </div>
 <div id="caregiver-education-highest-1" class="section level3">
 <h3>Caregiver Education (Highest)</h3>
@@ -1110,9 +1101,9 @@ table_ct_pct_3split(&quot;race&quot;)</code></pre>
 <pre><code>## # A tibble: 3 × 4
 ##   Group          Mean    SD Missing_Values
 ##   &lt;chr&gt;         &lt;dbl&gt; &lt;dbl&gt;          &lt;int&gt;
-## 1 Non-Affective  15.2  2.77              0
-## 2 Affective      16.2  2.84              0
-## 3 Control        16.0  3.24              0</code></pre>
+## 1 Non-Affective  15.2  2.89              0
+## 2 Affective      16.3  3.06              0
+## 3 Control        16.3  3.62              0</code></pre>
 </div>
 </div>
 <div id="clinical-1" class="section level2">
@@ -1123,11 +1114,11 @@ table_ct_pct_3split(&quot;race&quot;)</code></pre>
 <pre><code>## # A tibble: 6 × 4
 ##   Group   Variable Count Percentage
 ##   &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;      &lt;dbl&gt;
-## 1 NA      1           69        100
+## 1 NA      1           45        100
 ## 2 NA      NA           0         NA
-## 3 Aff     2           51        100
+## 3 Aff     2           39        100
 ## 4 Aff     NA           0         NA
-## 5 Control 0          111        100
+## 5 Control 0           70        100
 ## 6 Control NA           0         NA</code></pre>
 </div>
 <div id="duration-of-untreated-psychosis-1" class="section level3">
@@ -1136,9 +1127,9 @@ table_ct_pct_3split(&quot;race&quot;)</code></pre>
 <pre><code>## # A tibble: 3 × 4
 ##   Group           Mean    SD Missing_Values
 ##   &lt;chr&gt;          &lt;dbl&gt; &lt;dbl&gt;          &lt;int&gt;
-## 1 Non-Affective   6.13  4.73              1
-## 2 Affective       6.71  5.28              0
-## 3 Control       NaN    NA               111</code></pre>
+## 1 Non-Affective   5.51  4.57              0
+## 2 Affective       5.79  4.48              0
+## 3 Control       NaN    NA                70</code></pre>
 </div>
 <div id="bprs---na" class="section level3">
 <h3>BPRS - NA</h3>
@@ -1146,11 +1137,11 @@ table_ct_pct_3split(&quot;race&quot;)</code></pre>
 <pre><code>## # A tibble: 5 × 3
 ##   Variable           Mean    SD
 ##   &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt;
-## 1 BPRS Positive     10.5   4.77
-## 2 BPRS Negative      5.42  3.12
-## 3 BPRS Disorganized  7.42  2.61
-## 4 BPRS Mania         3.98  1.8 
-## 5 BPRS Depression    8.5   3.71</code></pre>
+## 1 BPRS Positive     10.1   4.74
+## 2 BPRS Negative      5.36  3.29
+## 3 BPRS Disorganized  7.07  2.55
+## 4 BPRS Mania         4.11  2.01
+## 5 BPRS Depression    8.27  3.82</code></pre>
 </div>
 <div id="bprs---aff" class="section level3">
 <h3>BPRS - Aff</h3>
@@ -1158,11 +1149,11 @@ table_ct_pct_3split(&quot;race&quot;)</code></pre>
 <pre><code>## # A tibble: 5 × 3
 ##   Variable           Mean    SD
 ##   &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt;
-## 1 BPRS Positive      8.41  3.29
-## 2 BPRS Negative      4.82  2.49
-## 3 BPRS Disorganized  6.98  2.08
-## 4 BPRS Mania         3.55  1.31
-## 5 BPRS Depression    8.71  3.56</code></pre>
+## 1 BPRS Positive      8.08  2.96
+## 2 BPRS Negative      4.82  2.61
+## 3 BPRS Disorganized  6.74  1.97
+## 4 BPRS Mania         3.49  1.32
+## 5 BPRS Depression    8.49  3.36</code></pre>
 </div>
 <div id="bprs---ctl-1" class="section level3">
 <h3>BPRS - Ctl</h3>
@@ -1170,11 +1161,11 @@ table_ct_pct_3split(&quot;race&quot;)</code></pre>
 <pre><code>## # A tibble: 5 × 3
 ##   Variable           Mean    SD
 ##   &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt;
-## 1 BPRS Positive      5.18  0.56
-## 2 BPRS Negative      3.63  1.03
-## 3 BPRS Disorganized  4.87  1.11
-## 4 BPRS Mania         3.16  0.53
-## 5 BPRS Depression    4.63  2</code></pre>
+## 1 BPRS Positive      5.14  0.49
+## 2 BPRS Negative      3.56  0.99
+## 3 BPRS Disorganized  4.89  1.2 
+## 4 BPRS Mania         3.23  0.64
+## 5 BPRS Depression    4.49  1.83</code></pre>
 </div>
 </div>
 </div>
