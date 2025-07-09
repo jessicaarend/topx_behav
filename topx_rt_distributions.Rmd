@@ -2,31 +2,31 @@
 title: "TOPX RT Distributions"
 author: "Jessica Arend"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
-# prep environment and load data
-```{r}
+```{r, echo = FALSE}
 # clear workspace
 rm(list=ls())
 
 # load in packages
-pacman::p_load(dplyr, ggplot2, tidyr) #stringr,psych, tidyr)
+pacman::p_load(dplyr, ggplot2, tidyr, stringr) #stringr,psych, tidyr)
 
 # load in files
 files <- Sys.glob("~/Documents/umn_work/topx_analyses/topx_clean/clean_data/all/*.csv") # all data
 ```
 
-# create 
-```{r}
+```{r, echo = FALSE}
 #open empty dataframe
 agg_dat <- data.frame()
-agg_dat_abbrev<- data.frame()
+agg_dat_abbrev <- data.frame()
 
 # load data into new dataframe
 # for testing, without for-loop, run 'filename = files[1]'
-filename = files[1]
-#for (filename in files) {
+# filename = files[1]
+for (filename in files) {
 
 # read in data
 dat <- read.csv(filename)
@@ -54,7 +54,7 @@ dat <- dat %>%
          -blocksCompleted, -trialsCompleted, -cue_image, -probe_image)
 
 dat_abbrev <- dat %>%
-  select(subj, visit, rt_cue, rt_probe) %>%
+  select(subj, visit, rt_cue, rt_probe, cue_type, probe_type, outcome) %>%
   filter(!(is.na(rt_cue) & is.na(rt_probe)))
 
 dat_abbrev <- dat_abbrev %>%
@@ -69,17 +69,182 @@ dat_abbrev <- dat_abbrev %>%
   filter(!is.na(rt))
 
 # write rows from this for-loop to previous aggregate data from
-agg_dat <- bind_rows(agg_dat, dat)
+# agg_dat <- bind_rows(agg_dat, dat)
 agg_dat_abbrev <- bind_rows(agg_dat_abbrev, dat_abbrev)
 
 }
 ```
 
+```{r, echo = FALSE}
+# clean aggregate data
+# recode visits
+agg_dat_abbrev <- agg_dat_abbrev %>%
+  mutate(visit = recode(visit,
+                        "BL1.5" = "BL1",
+                        "BL2.5" = "BL2"))
 
-```{r}
+agg_dat_abbrev$subj <- trimws(agg_dat_abbrev$subj)
 
-# Density plots with semi-transparent fill
-ggplot(dat_abbrev, aes(x=rt, fill=state)) + geom_density(alpha=.3)
+agg_dat_abbrev <- agg_dat_abbrev %>%
+  mutate(group = "group",
+         group = case_when(
+      str_sub(subj, 1, 3) == 'SP1' ~ 'Control',
+      str_sub(subj, 1, 3) == 'SP2' ~ 'Patient',
+      TRUE ~ group))
+```
 
+### total N of participants
+```{r, echo = FALSE} 
+# descriptive stats
+# number of ppts
+agg_dat_abbrev %>%
+  distinct(subj) %>%
+  count(name = "n")
+```
+
+### N of ppts in each group
+```{r, echo = FALSE}
+# number of ppts per group
+agg_dat_abbrev %>%
+  distinct(subj, group) %>%
+  count(group, name = "n_per_group")
+```
+
+### N of ppts at each visit
+```{r, echo = FALSE}
+# number of ppts per visit
+agg_dat_abbrev %>%
+  distinct(subj, visit) %>%
+  count(visit, name = "n_per_visit")
+```
+
+```{r, echo = FALSE}
+# density plot for just probes
+agg_dat_abbrev_probe <- filter(agg_dat_abbrev, state == "probe")
+
+msd_probe <- agg_dat_abbrev_probe %>%
+  group_by(probe_type) %>%
+  summarise(mean = median(rt, na.rm = TRUE),
+            sd = sd(rt, na.rm = TRUE),
+            .groups = "drop")
+
+ggplot(agg_dat_abbrev_probe, aes(x=rt, fill=probe_type)) + 
+  geom_density(alpha=.4) +
+  ggtitle("Probe Reaction Times (All Visits, Correct + Incorrect Trials)") +
+  scale_x_continuous(breaks = seq(0, 1400, by = 200),
+                     name = "Reaction Times (ms)") +
+  scale_y_continuous(name = "Density") +
+  labs(fill = "Probe Type") +
+  geom_vline(data=msd_probe, aes(xintercept=mean, color=probe_type),
+             linetype="dashed", show.legend = FALSE)
+
+```
+
+
+```{r, echo = FALSE}
+# density plot for just probes - correct only
+agg_dat_abbrev_probe_correct <- filter(agg_dat_abbrev_probe, outcome == "Correct")
+
+msd_probe_correct <- agg_dat_abbrev_probe_correct %>%
+  group_by(probe_type) %>%
+  summarise(mean = median(rt, na.rm = TRUE),
+            sd = sd(rt, na.rm = TRUE),
+            .groups = "drop")
+
+ggplot(agg_dat_abbrev_probe_correct, aes(x=rt, fill=probe_type)) + 
+  geom_density(alpha=.4) +
+  ggtitle("Probe Reaction Times (All Visits, Correct Trials Only)") +
+  scale_x_continuous(breaks = seq(0, 1400, by = 200),
+                     name = "Reaction Times (ms)") +
+  scale_y_continuous(name = "Density") +
+  labs(fill = "Probe Type") +
+  geom_vline(data=msd_probe_correct, aes(xintercept=mean, color=probe_type),
+             linetype="dashed", show.legend = FALSE)
+
+```
+
+```{r, echo = FALSE}
+# density plot for just probes - correct only
+msd_probe_correct_grp <- agg_dat_abbrev_probe_correct %>%
+  group_by(group, probe_type) %>%
+  summarise(mean = median(rt, na.rm = TRUE),
+            sd = sd(rt, na.rm = TRUE),
+            .groups = "drop")
+
+ggplot(agg_dat_abbrev_probe_correct, aes(x = rt, fill = probe_type)) + 
+  geom_density(alpha = 0.4) +
+  ggtitle("Probe Reaction Times (All Visits, Correct Trials Only)") +
+  scale_x_continuous(breaks = seq(0, 1400, by = 200),
+                     name = "Reaction Times (ms)") +
+  scale_y_continuous(name = "Density") +
+  labs(fill = "Probe Type") +
+  facet_wrap(~ group, ncol = 2) +
+  geom_vline(data = msd_probe_correct_grp, aes(xintercept = mean, color = probe_type),
+             linetype = "dashed", show.legend = FALSE) +
+  theme(legend.position = "bottom")
+```
+
+```{r, echo = FALSE}
+# density plot for just cues
+agg_dat_abbrev_cue <- filter(agg_dat_abbrev, state == "cue")
+
+msd_cue <- agg_dat_abbrev_cue %>%
+  group_by(cue_type) %>%
+  summarise(mean = median(rt, na.rm = TRUE),
+            sd = sd(rt, na.rm = TRUE),
+            .groups = "drop")
+
+ggplot(agg_dat_abbrev_cue, aes(x=rt, fill=cue_type)) + 
+  geom_density(alpha=.4) +
+  ggtitle("Cue Reaction Times (All Visits, Correct + Incorrect Trials)") +
+  scale_x_continuous(breaks = seq(0, 1400, by = 200),
+                     name = "Reaction Times (ms)") +
+  scale_y_continuous(name = "Density") +
+  labs(fill = "Cue Type") +
+  geom_vline(data=msd_cue, aes(xintercept=mean, color=cue_type),
+             linetype="dashed", show.legend = FALSE)
+```
+
+
+
+```{r, echo = FALSE, eval = FALSE}
+# density plot for cue and probe
+msd_both <- agg_dat_abbrev %>%
+  group_by(state) %>%
+  summarise(mean = median(rt, na.rm = TRUE),
+            sd = sd(rt, na.rm = TRUE),
+            .groups = "drop")
+
+ggplot(agg_dat_abbrev, aes(x=rt, fill=state)) + 
+  geom_density(alpha=.4) +
+  ggtitle("Cue + Probe Reaction Times (All Visits, Correct + Incorrect Trials)") +
+  scale_x_continuous(breaks = seq(0, 1400, by = 200),
+                     name = "Reaction Times (ms)") +
+  scale_y_continuous(name = "Density") +
+  labs(fill = "State") +
+  geom_vline(data=msd_both, aes(xintercept=mean, color=state),
+             linetype="dashed", show.legend = FALSE)
+```
+
+```{r, echo = FALSE, eval = FALSE}
+# density plot for cue and probe at bl1 only
+agg_dat_abbrev_bl1 <- filter(agg_dat_abbrev, visit == "BL1")
+
+msd_bl1 <- agg_dat_abbrev_bl1 %>%
+  group_by(state) %>%
+  summarise(mean = median(rt, na.rm = TRUE),
+            sd = sd(rt, na.rm = TRUE),
+            .groups = "drop")
+
+ggplot(agg_dat_abbrev_bl1, aes(x=rt, fill=state)) + 
+  geom_density(alpha=.4) +
+  ggtitle("Density Plot of Cue + Probe Reaction Times (BL1 only)") +
+  scale_x_continuous(breaks = seq(0, 1400, by = 200),
+                     name = "Reaction Times (ms)") +
+  scale_y_continuous(name = "Density") +
+  labs(fill = "State") +
+  geom_vline(data=msd_bl1, aes(xintercept=mean, color=state),
+             linetype="dashed", show.legend = FALSE)
+```
 ```
 
