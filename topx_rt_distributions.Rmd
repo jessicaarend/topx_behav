@@ -1,0 +1,85 @@
+---
+title: "TOPX RT Distributions"
+author: "Jessica Arend"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+# prep environment and load data
+```{r}
+# clear workspace
+rm(list=ls())
+
+# load in packages
+pacman::p_load(dplyr, ggplot2, tidyr) #stringr,psych, tidyr)
+
+# load in files
+files <- Sys.glob("~/Documents/umn_work/topx_analyses/topx_clean/clean_data/all/*.csv") # all data
+```
+
+# create 
+```{r}
+#open empty dataframe
+agg_dat <- data.frame()
+agg_dat_abbrev<- data.frame()
+
+# load data into new dataframe
+# for testing, without for-loop, run 'filename = files[1]'
+filename = files[1]
+#for (filename in files) {
+
+# read in data
+dat <- read.csv(filename)
+
+dat <- dat %>%
+  mutate(
+    rt_cue_stim   = if_else(response_state == "cue", response_time, NA_real_),
+    rt_probe_stim = if_else(response_state == "probe", response_time, NA_real_),
+
+    cue_duration   = if_else(response_state == "cue", duration, NA_real_),
+    probe_duration = if_else(response_state == "probe", duration, NA_real_),
+
+    lagged_cue_duration   = lag(cue_duration),
+    lagged_probe_duration = lag(probe_duration),
+
+    rt_cue_focus   = if_else(response_state == "cue_focus", 
+                             response_time + lagged_cue_duration, NA_real_),
+    rt_probe_focus = if_else(response_state == "probe_focus", 
+                             response_time + lagged_probe_duration, NA_real_),
+
+    rt_cue   = coalesce(rt_cue_stim, rt_cue_focus),
+    rt_probe = coalesce(rt_probe_stim, rt_probe_focus)) %>%
+  select(-cue_duration, -probe_duration, -lagged_cue_duration, -lagged_probe_duration,
+         -start_time, -end_time, -duration, -response_time, -response,
+         -blocksCompleted, -trialsCompleted, -cue_image, -probe_image)
+
+dat_abbrev <- dat %>%
+  select(subj, visit, rt_cue, rt_probe) %>%
+  filter(!(is.na(rt_cue) & is.na(rt_probe)))
+
+dat_abbrev <- dat_abbrev %>%
+  pivot_longer(
+    cols = c(rt_cue, rt_probe),
+    names_to = "state",
+    values_to = "rt"
+  ) %>%
+  mutate(
+    state = if_else(state == "rt_cue", "cue", "probe")
+  )  %>%
+  filter(!is.na(rt))
+
+# write rows from this for-loop to previous aggregate data from
+agg_dat <- bind_rows(agg_dat, dat)
+agg_dat_abbrev <- bind_rows(agg_dat_abbrev, dat_abbrev)
+
+}
+```
+
+
+```{r}
+
+# Density plots with semi-transparent fill
+ggplot(dat_abbrev, aes(x=rt, fill=state)) + geom_density(alpha=.3)
+
+```
+

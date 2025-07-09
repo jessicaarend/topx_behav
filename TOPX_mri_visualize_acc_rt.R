@@ -9,7 +9,7 @@ rm(list=ls())
 pacman::p_load(dplyr, stringr, ggplot2, tidyr)
 
 # load in data
-dat <- read.csv("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_20240202.csv")
+dat <- read.csv("~/Documents/umn_work/topx_analyses/topx_clean/aggregate_data/aggregate_topx_20250315.csv")
 View(dat)
 
 # valid and invalid data ----------
@@ -20,18 +20,18 @@ View(dat_ex)
 n_invalid <- length(unique(dat_ex$subj))
 
 # save as invalid
-write.csv(dat_ex,file=paste0("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_invalid_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
+#write.csv(dat_ex,file=paste0("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_invalid_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 valid_dat <- dat[!(dat$subj %in% dat_ex$subj),]
 
 n_valid <- length(unique(valid_dat$subj))
 
 # save as valid
-write.csv(valid_dat,file=paste0("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_valid_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
+#write.csv(valid_dat,file=paste0("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_valid_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # re-read in dat with subjects removed
-dat <- read.csv("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_valid_20240202.csv")
-View(dat)
+#dat <- read.csv("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_valid_20240202.csv")
+#View(dat)
 
 # create subsets by visit -----------
 # recode visits

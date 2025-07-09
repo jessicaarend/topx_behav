@@ -513,7 +513,7 @@ table_bprs <- function(data) {
 }
 ```
 
-### BPRS table - wilson-sponheim factors
+### BPRS - W/S average
 ```{r, echo = FALSE}
 table_bprs_ws <- function(data) {
   summary <- tibble(
@@ -536,7 +536,30 @@ table_bprs_ws <- function(data) {
 }
 ```
 
-### SANS-SAPS table
+### BPRS - W/S total
+```{r, echo = FALSE}
+table_bprs_ws_tot <- function(data) {
+  summary <- tibble(
+    Variable = c("BPRS Positive", "BPRS Negative", 
+                 "BPRS Disorganized", "BPRS Mania", "BPRS Depression"),
+    Mean = c(
+      round(mean(data$bprs_pos_ws, na.rm = TRUE), 2),
+      round(mean(data$bprs_neg_ws, na.rm = TRUE), 2),
+      round(mean(data$bprs_disorg_ws, na.rm = TRUE), 2),
+      round(mean(data$bprs_mania_ws, na.rm = TRUE), 2),
+      round(mean(data$bprs_dep_anx_ws, na.rm = TRUE), 2)),
+    SD = c(
+      round(sd(data$bprs_pos_ws, na.rm = TRUE), 2),
+      round(sd(data$bprs_neg_ws, na.rm = TRUE), 2),
+      round(sd(data$bprs_disorg_ws, na.rm = TRUE), 2),
+      round(sd(data$bprs_mania_ws, na.rm = TRUE), 2),
+      round(sd(data$bprs_dep_anx_ws, na.rm = TRUE), 2))
+    )
+  summary
+}
+```
+
+### SANS-SAPS avg
 ```{r}
 table_sanssaps <- function(data) {
   summary <- tibble(
