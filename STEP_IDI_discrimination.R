@@ -589,6 +589,19 @@ dat_bl1 %>%
     tot_m = mean(idi_total, na.rm = TRUE),
     tot_sd = sd(idi_total, na.rm = TRUE))
 
+dat_bl1 %>% 
+  group_by(race_2split, group) %>% 
+  summarise(
+    n = n(),
+    ant_m = mean(idi_anticipated, na.rm = TRUE),
+    ant_sd = sd(idi_anticipated, na.rm = TRUE),
+    d2d_m = mean(idi_daytoday, na.rm = TRUE),
+    d2d_sd = sd(idi_daytoday, na.rm = TRUE),
+    maj_m = mean(idi_major, na.rm = TRUE),
+    maj_sd = sd(idi_major, na.rm = TRUE),
+    tot_m = mean(idi_total, na.rm = TRUE),
+    tot_sd = sd(idi_total, na.rm = TRUE))
+
 #### by gender --------
 dat_bl1 %>% 
   group_by(gender) %>% #1: cis/trans man, 2: cis/trans woman, 3: enby/other
@@ -655,6 +668,20 @@ dat_bl1 %>%
     tot_m = mean(idi_total, na.rm = TRUE),
     tot_sd = sd(idi_total, na.rm = TRUE))
 
+dat_bl1 %>% 
+  group_by(gender_3split, group) %>% #1:cisM, 2:cisW, 3:transM, 4:transW, 5:enby/oth
+  summarise(
+    n = n(),
+    ant_m = mean(idi_anticipated, na.rm = TRUE),
+    ant_sd = sd(idi_anticipated, na.rm = TRUE),
+    d2d_m = mean(idi_daytoday, na.rm = TRUE),
+    d2d_sd = sd(idi_daytoday, na.rm = TRUE),
+    maj_m = mean(idi_major, na.rm = TRUE),
+    maj_sd = sd(idi_major, na.rm = TRUE),
+    tot_m = mean(idi_total, na.rm = TRUE),
+    tot_sd = sd(idi_total, na.rm = TRUE))
+
+
 
 dat_bl1 %>% 
   group_by(gender_cis_trans, group) %>% #0 = cis, 1 = trans/enby
@@ -694,24 +721,28 @@ print(emmeans(mod_ggA, list(pairwise ~ gender_3split:group), adjust = "mvt"))
 
 # plot
 plot_ggA <- ggplot(dat_bl1, aes(x= gender, y=idi_anticipated, group = group)) + 
-  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5) + 
-  stat_summary(fun="mean", geom="point", aes(color = group), size = 3) + 
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5, position = position_dodge(width = 0.05)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3, position = position_dodge(width = 0.05)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
-  labs(y = "IDI-Anticipated", x = "Gender", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  labs(y = "IDI-Anticipated", x = "", color = "") +
+  coord_cartesian(ylim = c(1, 23)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black"), 
-        axis.text = element_text(face="bold", size = 10),
+        axis.text = element_text(face="bold", size = 12),
         axis.title = element_text(face="bold", size = 16),
         legend.text = element_text(face="bold", size = 14),
         legend.title = element_text(face = "bold", size = 16),
         plot.title = element_text(face = "bold", size = 22))
-plot_ggA + scale_x_discrete(labels=c("1" = "Male", "2" = "Female",
-                              "3" = "Trans/Enby"))
+(plot1 <- plot_ggA + scale_x_discrete(labels=c("1" = "Cis Man",
+                                               "2" = "Cis Woman",
+                                               "3" = "Trans/Enby")))
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), "_IDIa_gender.png"),
+       plot1, width = 5, height = 4)
 
 ##### IDI-D: group*gender_3split ----------
 mod_ggD <- lm(idi_daytoday ~ group * gender_3split, data = dat_bl1)
@@ -725,24 +756,28 @@ print(emmeans(mod_ggD, list(pairwise ~ gender_3split:group), adjust = "mvt"))
 
 # plot
 plot_ggD <- ggplot(dat_bl1, aes(x= gender, y=idi_daytoday, group = group)) + 
-  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5) + 
-  stat_summary(fun="mean", geom="point", aes(color = group), size = 3) + 
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5, position = position_dodge(width = 0.05)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3, position = position_dodge(width = 0.05)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
-  labs(y = "IDI-Day-to-Day", x = "Gender", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  labs(y = "IDI-Day-to-Day", x = "", color = "") +
+  coord_cartesian(ylim = c(1, 23)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black"), 
-        axis.text = element_text(face="bold", size = 10),
+        axis.text = element_text(face="bold", size = 12),
         axis.title = element_text(face="bold", size = 16),
         legend.text = element_text(face="bold", size = 14),
         legend.title = element_text(face = "bold", size = 16),
         plot.title = element_text(face = "bold", size = 22))
-plot_ggD + scale_x_discrete(labels=c("1" = "Male", "2" = "Female",
-                                     "3" = "Trans/Enby"))
+(plot2 <- plot_ggD + scale_x_discrete(labels=c("1" = "Cis Man",
+                                               "2" = "Cis Woman",
+                                     "3" = "Trans/Enby")))
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), "_IDId_gender.png"),
+       plot2, width = 5, height = 4)
 
 ##### IDI-M: group*gender_3split ----------
 mod_ggM <- lm(idi_major ~ group * gender_3split, data = dat_bl1)
@@ -756,24 +791,27 @@ print(emmeans(mod_ggM, list(pairwise ~ gender_3split:group), adjust = "mvt"))
 
 # plot
 plot_ggM <- ggplot(dat_bl1, aes(x= gender, y=idi_major, group = group)) + 
-  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5) + 
-  stat_summary(fun="mean", geom="point", aes(color = group), size = 3) + 
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5, position = position_dodge(width = 0.05)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3, position = position_dodge(width = 0.05)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
-  labs(y = "IDI-Major", x = "Gender", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  labs(y = "IDI-Major", x = "", color = "") +
+  coord_cartesian(ylim = c(0, 23)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black"), 
-        axis.text = element_text(face="bold", size = 10),
+        axis.text = element_text(face="bold", size = 12),
         axis.title = element_text(face="bold", size = 16),
         legend.text = element_text(face="bold", size = 14),
         legend.title = element_text(face = "bold", size = 16),
         plot.title = element_text(face = "bold", size = 22))
-plot_ggM + scale_x_discrete(labels=c("1" = "Male", "2" = "Female",
-                                     "3" = "Trans/Enby"))
+(plot3 <- plot_ggM + scale_x_discrete(labels=c("1" = "Cis Man", "2" = "Cis Woman",
+                                     "3" = "Trans/Enby")))
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), "_IDIm_gender.png"),
+       plot3, width = 5, height = 4)
 
 #mod1 <- lmer(idi_anticipated ~ group + gender_3split + (1|subj), data = dat_bl1) - not working
 
@@ -831,8 +869,8 @@ plot_grA <- ggplot(dat_bl1, aes(x= race_v2, y=idi_anticipated, group = group)) +
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
   labs(y = "IDI-Anticipated", x = "Race", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
@@ -868,8 +906,8 @@ plot_grD <- ggplot(dat_bl1, aes(x= race_v2, y=idi_daytoday, group = group)) +
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
   labs(y = "IDI-Day-to-Day", x = "Race", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
@@ -900,13 +938,13 @@ print(emmeans(mod_grM2, list(pairwise ~ race_v2:group), adjust = "mvt"))
 
 # plot
 plot_grM <- ggplot(dat_bl1, aes(x= race_v2, y=idi_major, group = group)) + 
-  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5) + 
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5, position = position_dodge(width = 0.05)) + 
   stat_summary(fun="mean", geom="point", aes(color = group), size = 3) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
   labs(y = "IDI-Major", x = "Race", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
@@ -935,25 +973,32 @@ print(emmeans(mod_grA, list(pairwise ~ race_2split), adjust = "mvt"))
 print(emmeans(mod_grA, list(pairwise ~ group:race_2split), adjust = "mvt"))
 print(emmeans(mod_grA, list(pairwise ~ race_2split:group), adjust = "mvt"))
 
+dat_bl1$race_2split <- factor(dat_bl1$race_2split, levels = c(0,1))
+
+
 # plot
-plot_grA <- ggplot(dat_bl1, aes(x= race_2split, y=idi_anticipated, group = group)) + 
-  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5) + 
-  stat_summary(fun="mean", geom="point", aes(color = group), size = 3) + 
+(plot_grA <- ggplot(dat_bl1, aes(x= race_2split, y=idi_anticipated, group = group)) + 
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5, position = position_dodge(width = 0.05)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3, position = position_dodge(width = 0.05)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
-  labs(y = "IDI-Anticipated", x = "Race", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  labs(y = "IDI-Anticipated", x = "", color = "") +
+  coord_cartesian(ylim = c(1, 23)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
+  scale_x_discrete(labels=c("0" = "White", "1" = "BIPOC")) +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
-        axis.line = element_line(colour = "black"), 
-        axis.text = element_text(face="bold", size = 10),
+        axis.line.x = element_line(colour = "black"), 
+        axis.line.y = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 12),
         axis.title = element_text(face="bold", size = 16),
         legend.text = element_text(face="bold", size = 14),
         legend.title = element_text(face = "bold", size = 16),
-        plot.title = element_text(face = "bold", size = 22))
-plot_grA + scale_x_discrete(labels=c("0" = "White", "1" = "BIPOC"))
+        plot.title = element_text(face = "bold", size = 22)))
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), "_IDIa_race.png"),
+       plot_grA, width = 5, height = 4)
 # 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6 = ?
 
 ##### IDI-D: group*race ----------
@@ -967,24 +1012,28 @@ print(emmeans(mod_grD, list(pairwise ~ group:race_2split), adjust = "mvt"))
 print(emmeans(mod_grD, list(pairwise ~ race_2split:group), adjust = "mvt"))
 
 # plot
-plot_grD <- ggplot(dat_bl1, aes(x= race_2split, y=idi_daytoday, group = group)) + 
-  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5) + 
-  stat_summary(fun="mean", geom="point", aes(color = group), size = 3) + 
+(plot_grD <- ggplot(dat_bl1, aes(x= race_2split, y=idi_daytoday, group = group)) + 
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5, 
+               position = position_dodge(width = 0.05)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3, position = position_dodge(width = 0.05)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
-  labs(y = "IDI-Day-to-Day", x = "Race", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  labs(y = "IDI-Day-to-Day", x = "", color = "") +
+  coord_cartesian(ylim = c(1, 23)) +
+  scale_x_discrete(labels=c("0" = "White", "1" = "BIPOC")) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black"), 
-        axis.text = element_text(face="bold", size = 10),
+        axis.text = element_text(face="bold", size = 12),
         axis.title = element_text(face="bold", size = 16),
         legend.text = element_text(face="bold", size = 14),
         legend.title = element_text(face = "bold", size = 16),
-        plot.title = element_text(face = "bold", size = 22))
-plot_grD + scale_x_discrete(labels=c("0" = "White", "1" = "BIPOC"))
+        plot.title = element_text(face = "bold", size = 22)))
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), "_IDId_race.png"),
+       plot_grD, width = 5, height = 4)
 
 # 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6 = ?
 
@@ -999,24 +1048,29 @@ print(emmeans(mod_grM, list(pairwise ~ group:race_2split), adjust = "mvt"))
 print(emmeans(mod_grM, list(pairwise ~ race_2split:group), adjust = "mvt"))
 
 # plot
-plot_grM <- ggplot(dat_bl1, aes(x= race_2split, y=idi_major, group = group)) + 
-  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5) + 
-  stat_summary(fun="mean", geom="point", aes(color = group), size = 3) + 
+(plot_grM <- ggplot(dat_bl1, aes(x= race_2split, y=idi_major, group = group)) + 
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5,
+               position = position_dodge(width = 0.05)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3,
+               position = position_dodge(width = 0.05)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
                width = 0.2, size = 1, position = position_dodge(width = 0.05)) + 
-  labs(y = "IDI-Major", x = "Race", color = "") +
-  scale_color_manual(values=c("#1ec7a4ff", "#d7551bff"),
-                     labels=c("Control", "EP")) + 
+  labs(y = "IDI-Major", x = "", color = "") +
+  coord_cartesian(ylim = c(0, 23)) +
+  scale_x_discrete(labels=c("0" = "White", "1" = "BIPOC")) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black"), 
-        axis.text = element_text(face="bold", size = 10),
+        axis.text = element_text(face="bold", size = 12),
         axis.title = element_text(face="bold", size = 16),
         legend.text = element_text(face="bold", size = 14),
         legend.title = element_text(face = "bold", size = 16),
-        plot.title = element_text(face = "bold", size = 22))
-plot_grM + scale_x_discrete(labels=c("0" = "White", "1" = "BIPOC"))
+        plot.title = element_text(face = "bold", size = 22)))
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), "_IDIm_race.png"),
+       plot_grM, width = 5, height = 4)
 # 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6 = ?
 
 

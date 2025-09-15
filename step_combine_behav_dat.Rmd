@@ -54,7 +54,7 @@ clean_rep_inst <- function(data, date) {
 ### demographics -------
 # pull data from REDCap > "Demographics + Dx" report 
 # load in and clean data
-dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20250125.csv")
+dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20250908.csv")
 dat_demo <- clean_data(dat_demo)
 
 # remove unnecessary rows
@@ -64,17 +64,27 @@ dat_demo <- subset(dat_demo, select = -c(redcap_event_name, redcap_repeat_instru
 dat_demo$gender <- if_else(is.na(dat_demo$gender_cis), dat_demo$gender_trans, dat_demo$gender_cis)
 
 # fix missing gender variables for nonbinary ppts
-# dat_demo <- dat_demo %>%
-#   mutate(gender = case_when(
-#     subj %in% c("SP1030", "SP2014", "SP2112", 
-#                 "SP2120", "SP2197") ~ 3,  # Recode to 3
-#     TRUE ~ gender))
+dat_demo <- dat_demo %>%
+  mutate(gender = case_when(
+    subj %in% c("SP1030", "SP2014", "SP2112",
+                "SP2120", "SP2197") ~ 3,  # Recode to 3
+    TRUE ~ gender))
 
 # recode race NAs/other
 dat_demo <- dat_demo %>%
   mutate(race = ifelse(is.na(race), 6, race))
 dat_demo <- dat_demo %>%
   mutate(race_5split = ifelse(race == 6, 5, race))
+
+# fix missing hispanicity variables for nonbinary ppts
+dat_demo <- dat_demo %>%
+  mutate(hispanic = case_when(
+    subj %in% c("SP1030") ~ 1,  # Recode to 1=yes
+    TRUE ~ hispanic)) %>% 
+  mutate(hispanic = case_when(
+    subj %in% c("SP1097", "SP1099") ~ 0,
+    TRUE ~ hispanic))
+
 
 # recode "highest caregiver education" variable, taking highest of mother/father
 dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$mother_education, na.rm = TRUE)
@@ -118,6 +128,9 @@ dat_demo$dx_5split <- as.numeric(
                 "5" = "2",
                 "6" = "3",
                 "7" = "4"))
+
+# filter out if BL2 not complete
+dat_demo <- subset(dat_demo, b2_status == "4") # completed
 
 # start the revised combined data frame
 dat_behav <- dat_demo
