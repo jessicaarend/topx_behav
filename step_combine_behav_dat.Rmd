@@ -64,11 +64,46 @@ dat_demo <- subset(dat_demo, select = -c(redcap_event_name, redcap_repeat_instru
 dat_demo$gender <- if_else(is.na(dat_demo$gender_cis), dat_demo$gender_trans, dat_demo$gender_cis)
 
 # fix missing gender variables for nonbinary ppts
+# manually code some nonbinary ppts
+tnb_ppts <- c("SP1030", "SP2014", "SP2084", "SP2112", "SP2116", "SP2120", 
+              "SP2128", "SP2144", "SP2149","SP2160", "SP2195", "SP2197", "SP2207")
+dat_demo <- dat_demo %>% 
+  mutate(gender = ifelse(subj %in% tnb_ppts, "3", gender))
+
+# recode to 5-way split: 1=cis man, 2=cis woman, 3=trans man, 4=trans woman, 5 = enby
 dat_demo <- dat_demo %>%
-  mutate(gender = case_when(
-    subj %in% c("SP1030", "SP2014", "SP2112",
-                "SP2120", "SP2197") ~ 3,  # Recode to 3
-    TRUE ~ gender))
+  mutate(
+    gender_5split = case_when(
+      cis_or_trans==1 & gender_cis==1 ~ 1, # cis man
+      cis_or_trans==1 & gender_cis==2 ~ 2, # cis woman
+      cis_or_trans==2 & gender_trans==1 ~ 3, #trans man
+      cis_or_trans==2 & gender_trans==2 ~ 4, # trans woman
+      cis_or_trans==2 & gender_trans==3 ~ 5), #nonbinary
+    .after = "gender")
+dat_demo <- dat_demo %>% 
+  mutate(gender_5split = ifelse(subj %in% tnb_ppts, "5", gender_5split))
+
+# recode cis or trans: 1 = cis man, 2 = cis woman, 3 = trans/enby
+dat_demo <- dat_demo %>% 
+  mutate(
+    gender_3split = case_when(
+      gender_5split == 1 ~ 1,
+      gender_5split == 2 ~ 2, 
+      gender_5split == 3 ~ 3,
+      gender_5split == 4 ~ 3,
+      gender_5split == 5 ~ 3),
+    .after = "gender_5split")
+
+# recode cis or trans: 0 = cis, 1 = trans/enby
+dat_demo <- dat_demo %>% 
+  mutate(
+    gender_cis_trans = case_when(
+      gender_5split == 1 ~ 0,
+      gender_5split == 2 ~ 0, 
+      gender_5split == 3 ~ 1,
+      gender_5split == 4 ~ 1,
+      gender_5split == 5 ~ 1),
+    .after = "gender_5split")
 
 # recode race NAs/other
 dat_demo <- dat_demo %>%
@@ -379,7 +414,7 @@ dat_behav <- merge(dat_behav, dat_gf, by = "subj", all.x = TRUE)
 ```{r, echo = FALSE, include = FALSE}
 ### TMB IQ  ------------
 # Make sure to pull REDCap report "Test My Brain", to include tmb baseline date 
-dat_iq <- read.csv("../data/nontask_data/other_data/step_iq_20250125.csv")
+dat_iq <- read.csv("../data/nontask_data/other_data/step_iq_20250914.csv")
 dat_iq <- clean_data(dat_iq)
 dat_iq <- clean_rep_inst(dat_iq, "tmb_baseline_date")
 
@@ -600,6 +635,13 @@ table_sanssaps <- function(data) {
 ```{r}
 #gender: 1=man, 2=woman, 3=nonbinary/other
 table_ct_pct_2split("gender")
+
+# 1 = cis man, 2 = cis woman, 3 = trans/enby
+table_ct_pct_2split("gender_3split")
+
+# 1=cis man, 2=cis woman, 3=trans man, 4=trans woman, 5 = enby
+table_ct_pct_2split("gender_5split")
+
 # pt percentage NA (6/73)*100
 ```
 
@@ -691,6 +733,8 @@ table_m_sd_2split("duration_of_psychosis")
 # gender - report fisher
 chisq.test(dat_behav$gender, dat_behav$group)
 fisher.test(dat_behav$gender, dat_behav$group)
+fisher.test(dat_behav$gender_3split, dat_behav$group)
+
 
 
 # age
@@ -722,6 +766,8 @@ t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav) # welch's
 
 # IQ
 leveneTest(dat_behav$iq, dat_behav$status_ppt_type, data = dat_behav)
+shapiro.test(dat_behav$iq)
+
 t.test(iq ~ status_ppt_type, data = dat_behav) #welch's
 wilcox.test(iq ~ status_ppt_type, data = dat_behav)
 
