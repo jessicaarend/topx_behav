@@ -1,0 +1,956 @@
+---
+title: "step_anali_spring2026"
+author: "Jessica Arend + Anali Kocevar"
+date: "2026-02-25"
+output:
+  word_document: default
+  html_document: default
+---
+# Load, clean, combine data [hidden in output]
+```{r, echo = FALSE, include = FALSE}
+# clear workspace
+rm(list=ls())
+
+# read in packages
+pacman::p_load(stats, stringr, dplyr, tidyr, ggplot2, lme4, emmeans, lmerTest, Matrix, pbkrtest, psych, car, performance, parameters, data.table, tibble, Hmisc)
+```
+
+## TOPX
+```{r}
+# load in data
+dat_topx <- read.csv("data/aggregate_topx_20260414.csv")
+colnames(dat_topx)[1] <- "subj_idx"
+
+# set the levels for variable "visit"
+dat_topx$visit <- factor(dat_topx$visit,
+                         levels = c("BL1", "BL2", "6M", "7M", "12M"))
+
+# how many ppts total? (n = 201)
+length(unique(dat_topx$subj_idx))
+
+# keep only ppts with BL1, BL2, and 6M (n = 105)
+proj3_visits <- c("BL1", "BL2", "6M")
+dat_topx_proj3 <- dat_topx %>% 
+  group_by(subj_idx) %>% 
+  filter(all(proj3_visits %in% visit)) %>% 
+  ungroup()
+length(unique(dat_topx_proj3$subj_idx))
+# remove BL2
+dat_topx_proj3 <- dat_topx_proj3 %>% 
+  filter(visit %in% c("BL1", "6M"))
+# set this to dataframe going forward, if using for analyses
+dat_topx <- dat_topx_proj3
+
+# keep only ppts with all visits, BL1 through 12M (n = 32)
+proj4_visits <- c("BL1", "BL2", "6M", "7M", "12M")
+dat_topx_proj4 <- dat_topx %>% 
+  group_by(subj_idx) %>% 
+  filter(all(proj4_visits %in% visit)) %>% 
+  ungroup()
+length(unique(dat_topx_proj4$subj_idx))
+```
+
+## Demographics
+```{r, echo = FALSE, include = FALSE}
+### demographics -------
+# pull data from REDCap > "JLA Demographics + Dx" report 
+# load in and clean data
+dat_behav <- read.csv("data/step_behav_dat20251101.csv")
+colnames(dat_behav)[1] <- "subj_idx"
+
+# recode race NAs to "other"
+dat_behav <- dat_behav %>%
+  mutate(race_5split = ifelse(race == 6, 5, race),
+         .after = "race")
+
+# create numeric value for group
+dat_behav$group_num <- ifelse(dat_behav$group == "Control", 1, 
+                     ifelse(dat_behav$group == "Patient", 2, 
+                            NA))
+
+# remove bprs, 
+dat_behav <- dat_behav %>%
+  select(-starts_with("bprs"))
+dat_behav <- dat_behav %>%
+  select(-starts_with("sans"))
+dat_behav <- dat_behav %>%
+  select(-starts_with("saps"))
+dat_behav <- dat_behav %>%
+  select(-starts_with("spq"))
+
+# subset demographics data by topx data
+dat_behav <- dat_behav %>%
+  filter(subj_idx %in% dat_topx$subj_idx)
+```
+
+## BPRS
+```{r}
+
+
+
+# bprs
+dat_behav <- dat_behav %>% 
+  mutate(bprs_pos_ws = bprs_pos_ws/4) %>% 
+  mutate(bprs_neg_ws = bprs_neg_ws/3) %>% 
+  mutate(bprs_disorg_ws = bprs_disorg_ws/6) %>% 
+  mutate(bprs_mania_ws = bprs_mania_ws/5) %>%
+  mutate(bprs_dep_anx_ws = bprs_dep_anx_ws/5)
+```
+
+# DESCRIPTIVES
+## Subset data by group/visit
+```{r}
+# number of patients and controls
+table(dat_behav$group)
+
+### create datasets by group ----------
+dat_behav_pt <- subset(dat_behav, group == "Patient") 
+dat_behav_ctl <- subset(dat_behav, group == "Control")
+nPt <- nrow(dat_behav_pt)
+nCtl <- nrow(dat_behav_ctl)
+```
+
+## Functions
+### Count + % table
+```{r, echo = FALSE}
+# function for count, %, and NA table - 2 split (pt/ctl)
+table_ct_pct <- function(var) {
+  
+  # Calculate distribution and percentages for patients
+  count_pt <- table(dat_behav_pt[[var]])
+  pct_pt <- round((count_pt/nPt)*100, 0)
+  na_pt <- sum(is.na(dat_behav_pt[[var]]))
+  
+  # Calculate distribution and percentages for controls
+  count_ctl <- table(dat_behav_ctl[[var]])
+  pct_ctl <- round((count_ctl/nCtl)*100, 0)
+  na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
+  
+  # Create a summary table
+  summary <- tibble(
+    Group = c(rep("Patient", length(count_pt) + 1), 
+            rep("Control", length(count_ctl) + 1)),
+    Variable = c(names(count_pt), "NA", 
+             names(count_ctl), "NA"),
+    Count = c(as.numeric(count_pt), na_pt,
+            as.numeric(count_ctl), na_ctl),
+    Percentage = c(as.numeric(pct_pt), NA,
+                 as.numeric(pct_ctl), NA))
+  summary
+}
+```
+
+### M + SD table
+```{r, echo = FALSE}
+# function for mean, sd, and NA table - 2 split (pt/ctl)
+table_m_sd <- function(var) {
+  
+  # Calculate mean and standard deviation for patients
+  mean_pt <- mean(dat_behav_pt[[var]], na.rm = TRUE)
+  sd_pt <- sd(dat_behav_pt[[var]], na.rm = TRUE)
+  
+  # Calculate mean and standard deviation for controls
+  mean_ctl <- mean(dat_behav_ctl[[var]], na.rm = TRUE)
+  sd_ctl <- sd(dat_behav_ctl[[var]], na.rm = TRUE)
+  
+  # Count missing values for patients and controls
+  na_pt <- sum(is.na(dat_behav_pt[[var]]))
+  na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
+  
+  # Create a summary table
+  summary <- tibble(
+    Group = c("Patient", "Control"),
+    Mean = c(round(mean_pt, 2), round(mean_ctl, 2)),
+    SD = c(round(sd_pt, 2), round(sd_ctl, 2)),
+    Missing_Values = c(na_pt, na_ctl))  # Add missing values count
+  summary %>% 
+    mutate(across(where(is.numeric), as.character))
+}
+```
+
+### BPRS tables
+```{r, echo = FALSE}
+# function for BPRS table with wilson-sponheim factors
+table_bprs_ws <- function(data) {
+  data %>%
+    group_by(visit) %>%
+    summarise(
+      bprs_pos_mean     = round(mean(bprs_pos_ws, na.rm = TRUE), 2),
+      bprs_neg_mean     = round(mean(bprs_neg_ws, na.rm = TRUE), 2),
+      bprs_disorg_mean  = round(mean(bprs_disorg_ws, na.rm = TRUE), 2),
+      bprs_mania_mean   = round(mean(bprs_mania_ws, na.rm = TRUE), 2),
+      bprs_dep_anx_mean = round(mean(bprs_dep_anx_ws, na.rm = TRUE), 2),
+      
+      bprs_pos_sd      = round(sd(bprs_pos_ws, na.rm = TRUE), 2),
+      bprs_neg_sd      = round(sd(bprs_neg_ws, na.rm = TRUE), 2),
+      bprs_disorg_sd   = round(sd(bprs_disorg_ws, na.rm = TRUE), 2),
+      bprs_mania_sd    = round(sd(bprs_mania_ws, na.rm = TRUE), 2),
+      bprs_dep_anx_sd  = round(sd(bprs_dep_anx_ws, na.rm = TRUE), 2),
+      .groups = "drop"
+    ) %>%
+    rowwise() %>%
+    do({
+      tibble(
+        visit = .$visit,
+        Variable = c("BPRS Positive WS", "BPRS Negative WS", 
+                     "BPRS Disorganized WS", "BPRS Mania WS", 
+                     "BPRS Depression WS"),
+        Mean = c(.$bprs_pos_mean, .$bprs_neg_mean, .$bprs_disorg_mean, 
+                 .$bprs_mania_mean, .$bprs_dep_anx_mean),
+        SD = c(.$bprs_pos_sd, .$bprs_neg_sd, .$bprs_disorg_sd, 
+               .$bprs_mania_sd, .$bprs_dep_anx_sd)
+      )
+    }) %>%
+    ungroup()
+}
+```
+
+## Demographics
+### Gender
+```{r}
+#gender: 1=man, 2=woman, 3=non-binary/other
+table_ct_pct("gender")
+```
+
+### Age
+```{r}
+table_m_sd("age")
+```
+
+### Race
+```{r}
+# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial/other
+table_ct_pct("race_5split")
+```
+
+### Hispanicity
+```{r}
+# manually changed SP1030 = yes, SP1097 = no, SP1099 = no
+table_ct_pct("hispanic")
+```
+
+### Personal Education (Highest)
+```{r}
+table_m_sd("subj_education")
+```
+
+### Caregiver Education (Highest)
+```{r}
+table_m_sd("hi_caregiver_education")
+```
+
+## Clinical 
+### Diagnosis
+```{r}
+# dx: 0=control, 1=Sz/Szform, 2=SzAff, 3=BP, 4=MDD, 5=NOS/other
+table_ct_pct("dx_5split")
+```
+
+### BPRS - Pt
+```{r}
+### table of patient BPRS (Wilson-Sponheim factors)
+table_bprs_ws(dat_behav_pt)
+```
+
+### BPRS - Ctl
+```{r}
+### table of control BPRS (Wilson-Sponheim factors)
+table_bprs_ws(dat_behav_ctl)
+```
+
+### BPRS totals
+```{r}
+# patient bprs total
+bprs_total_table_pt <- dat_bprs_pt %>% 
+  group_by(visit) %>% 
+  dplyr::summarize(Mean = mean(bprs_total, na.rm = TRUE),
+            SD = sd(bprs_total, na.rm = TRUE))
+print(bprs_total_table_pt)
+
+
+bprs_total_table_ctl <- dat_bprs_ctl %>% 
+  group_by(visit) %>% 
+  dplyr::summarize(Mean = mean(bprs_total, na.rm = TRUE),
+            SD = sd(bprs_total, na.rm = TRUE))
+print(bprs_total_table_ctl)
+```
+
+# GROUP DIFF
+## Demographics
+### Gender
+```{r}
+# gender - using fisher because samples are too small for chi-squared
+fisher.test(dat_behav$gender, dat_behav$group)
+```
+
+### Age
+```{r}
+# age
+# welch's two-sample t-test
+t.test(age ~ group_num, data = dat_behav)
+
+# test variance/normality to see if t-tests are appropriate
+leveneTest(dat_behav$age, dat_behav$group_num, data = dat_behav) # tests equal variance between groups
+shapiro.test(dat_behav$age) # tests normality
+
+# wilcox aka mann-whitney U test
+wilcox.test(age ~ group_num, data = dat_behav)
+```
+
+### Race
+```{r}
+# race - using fisher because samples are too small for chi-squared
+fisher.test(dat_behav$race, dat_behav$group)
+```
+
+### Ethnicity
+```{r}
+# ethnicity
+chisq.test(dat_behav$hispanic, dat_behav$group)
+```
+
+### Pt Education
+```{r}
+# participant education
+# welch's two-sample t-test
+t.test(subj_education ~ group_num, data = dat_behav)
+
+# test variance/normality to see if t-tests are appropriate
+leveneTest(dat_behav$subj_education, dat_behav$group_num, data = dat_behav)
+shapiro.test(dat_behav$subj_education) # tests normality
+
+wilcox.test(subj_education ~ group_num, data = dat_behav)
+```
+
+### Caregiver Education
+```{r}
+# caregiver education
+# welch's two-sample t-test
+t.test(hi_caregiver_education ~ group_num, data = dat_behav)
+
+# test variance/normality to see if t-tests are appropriate
+leveneTest(dat_behav$hi_caregiver_education, dat_behav$group_num, data = dat_behav)
+shapiro.test(dat_behav$hi_caregiver_education) # tests normality
+
+wilcox.test(hi_caregiver_education ~ group_num, data = dat_behav)
+```
+
+###IQ
+```{r}
+# # IQ
+# # welch's two-sample t-test
+# t.test(iq ~ group_num, data = dat_behav)
+# 
+# # test variance/normality to see if t-tests are appropriate
+# leveneTest(dat_behav$iq, dat_behav$group_num, data = dat_behav)
+# wilcox.test(iq ~ group_num, data = dat_behav)
+```
+
+## BPRS
+### Total
+```{r}
+# BPRS - total
+# welch's two-sample t-test
+# t.test(bprs_total ~ group_num, data = dat_bprs)
+
+# test variance/normality to see if t-tests are appropriate
+# leveneTest(dat_bprs$bprs_total, dat_bprs$group_num, data = dat_bprs)
+# wilcox.test(bprs_total ~ group_num, data = dat_bprs)
+
+wilcox.test(bprs_total ~ group_num, data = dat_bprs_BL)
+wilcox.test(bprs_total ~ group_num, data = dat_bprs_6M)
+```
+
+### Positive
+```{r}
+# BPRS - positive
+# welch's two-sample t-test
+# t.test(bprs_pos_ws ~ group_num, data = dat_bprs)
+
+# test variance/normality to see if t-tests are appropriate
+# leveneTest(dat_bprs$bprs_pos_ws, dat_bprs$group_num, data = dat_bprs)
+# wilcox.test(bprs_pos_ws ~ group_num, data = dat_bprs)
+
+wilcox.test(bprs_pos_ws ~ group_num, data = dat_bprs_BL)
+wilcox.test(bprs_pos_ws ~ group_num, data = dat_bprs_6M)
+```
+
+### Negative
+```{r}
+# BPRS - negative
+# welch's two-sample t-test
+#t.test(bprs_neg_ws ~ group_num, data = dat_bprs)
+
+# test variance/normality to see if t-tests are appropriate
+#leveneTest(dat_bprs$bprs_neg_ws, dat_bprs$group_num, data = dat_bprs)
+
+wilcox.test(bprs_neg_ws ~ group_num, data = dat_bprs_BL)
+wilcox.test(bprs_neg_ws ~ group_num, data = dat_bprs_6M)
+```
+
+### Disorg
+```{r}
+# BPRS - disorg
+# welch's two-sample t-test
+# t.test(bprs_disorg_ws ~ group_num, data = dat_bprs)
+
+# test variance/normality to see if t-tests are appropriate
+# leveneTest(dat_bprs$bprs_disorg_ws, dat_bprs$group_num, data = dat_bprs)
+# wilcox.test(bprs_disorg_ws ~ group_num, data = dat_bprs) 
+
+wilcox.test(bprs_disorg_ws ~ group_num, data = dat_bprs_BL)
+wilcox.test(bprs_disorg_ws ~ group_num, data = dat_bprs_6M)
+```
+
+### Mania
+```{r}
+# BPRS - mania
+# welch's two-sample t-test
+# t.test(bprs_mania_ws ~ group_num, data = dat_bprs)
+
+# test variance/normality to see if t-tests are appropriate
+# leveneTest(dat_bprs$bprs_mania_ws, dat_bprs$group_num, data = dat_bprs)
+# wilcox.test(bprs_mania_ws ~ group_num, data = dat_bprs) 
+
+wilcox.test(bprs_mania_ws ~ group_num, data = dat_bprs_BL)
+wilcox.test(bprs_mania_ws ~ group_num, data = dat_bprs_6M)
+```
+
+### Depr/Anx
+```{r}
+# BPRS - depr/anx
+# welch's two-sample t-test
+# t.test(bprs_dep_anx_ws ~ group_num, data = dat_bprs)
+
+# test variance/normality to see if t-tests are appropriate
+# leveneTest(dat_bprs$bprs_dep_anx_ws, dat_bprs$group_num, data = dat_bprs)
+# wilcox.test(bprs_dep_anx_ws ~ group_num, data = dat_bprs) 
+
+wilcox.test(bprs_dep_anx_ws ~ group_num, data = dat_bprs_BL)
+wilcox.test(bprs_dep_anx_ws ~ group_num, data = dat_bprs_6M)
+```
+
+# LONGITUDINAL
+## TOPX
+### Error
+```{r}
+# run the LMER, report as an ANOVA
+mod_err <- lmer(error ~ group * trial_type * visit + (1|subj), data = dat_topx)
+anova_err <- anova(mod_err, type = 3)
+anova_err
+# run post-hoc tests on LMER main and significant effects
+print(emmeans(mod_err, list(pairwise ~ group), adjust = "mvt"))
+print(emmeans(mod_err, list(pairwise ~ trial_type), adjust = "mvt"))
+print(emmeans(mod_err, list(pairwise ~ group|trial_type), adjust = "mvt"))
+
+### plot error----------
+plot_err <- ggplot(dat_topx, 
+                        aes(x= trial_type, y=error, group = interaction(group,visit))) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = group, linetype = visit), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
+               width = 0.7, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group", linetype = "Visit") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
+  scale_linetype_manual(values = c("solid", "dotted", "dashed"), 
+                        labels = c("Visit 1", "Visit 2", "6-Month")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err
+```
+
+### Error by Visit
+```{r}
+dat_topx_bl1 <- filter(dat_topx, visit == "BL1")
+dat_topx_bl2 <- filter(dat_topx, visit == "BL2")
+dat_topx_6m <- filter(dat_topx, visit == "6M")
+
+### plot BL1 error----------
+plot_err_bl1 <- ggplot(dat_topx_bl1, 
+                        aes(x= trial_type, y=error, group = group)) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = group), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
+               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "BL1 Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP        ")) + 
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err_bl1
+
+### plot BL2 error----------
+plot_err_bl2 <- ggplot(dat_topx_bl2, 
+                        aes(x= trial_type, y=error, group = group)) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = group), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
+               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "BL2 Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP        ")) + 
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err_bl2
+
+### plot 6M error----------
+plot_err_6m <- ggplot(dat_topx_6m, 
+                        aes(x= trial_type, y=error, group = group)) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = group), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
+               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "6M Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP        ")) + 
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err_6m
+```
+
+### Error Aff/NonAff
+```{r}
+dat_topx <- dat_topx %>%
+  left_join(
+    dat_behav %>% select(subj, dx_affect),
+    by = "subj"
+  )
+
+dat_topx <- dat_topx %>%
+  mutate(dx_affect = ifelse(group == "Control" & is.na(dx_affect),
+                            1,
+                            dx_affect))
+
+dat_topx$dx_affect <- factor(dat_topx$dx_affect,
+                             levels = c(0, 1, 2),
+                             labels = c("Ctl", "Non-Aff", "Aff"))
+
+
+# run the LMER, report as an ANOVA
+mod_err_aff <- lmer(error ~ dx_affect * trial_type * visit + (1|subj), data = dat_topx)
+anova_err_aff <- anova(mod_err_aff, type = 3)
+anova_err_aff
+# run post-hoc tests on LMER main and significant effects
+print(emmeans(mod_err_aff, list(pairwise ~ dx_affect), adjust = "mvt"))
+print(emmeans(mod_err_aff, list(pairwise ~ trial_type), adjust = "mvt"))
+print(emmeans(mod_err_aff, list(pairwise ~ dx_affect|trial_type), adjust = "mvt"))
+
+### plot error----------
+plot_err_aff <- ggplot(dat_topx, 
+                        aes(x= trial_type, y=error, group = interaction(dx_affect,visit))) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = dx_affect, linetype = visit), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = dx_affect), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = dx_affect), 
+               width = 0.7, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group", linetype = "Visit") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829", "#C44E52"),
+                     labels=c("Ctl", "Non-Aff", "Aff")) + 
+  scale_linetype_manual(values = c("solid", "dotted", "dashed"), 
+                        labels = c("Visit 1", "Visit 2", "6-Month")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err_aff
+```
+
+### Error Aff/Nonaff by Visit
+```{r}
+dat_topx_bl1 <- filter(dat_topx, visit == "BL1")
+dat_topx_bl2 <- filter(dat_topx, visit == "BL2")
+dat_topx_6m <- filter(dat_topx, visit == "6M")
+
+### plot BL1 error----------
+plot_err_bl1_aff <- ggplot(dat_topx_bl1, 
+                        aes(x= trial_type, y=error, group = dx_affect)) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = dx_affect), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = dx_affect), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = dx_affect), 
+               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "BL1 Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829", "#C44E52"),
+                     labels=c("Ctl", "Non-Aff", "Aff")) +
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err_bl1_aff
+
+### plot BL2 error----------
+plot_err_bl2_aff <- ggplot(dat_topx_bl2, 
+                        aes(x= trial_type, y=error, group = dx_affect)) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = dx_affect), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = dx_affect), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = dx_affect), 
+               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "BL2 Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829", "#C44E52"),
+                     labels=c("Ctl", "Non-Aff", "Aff")) +
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err_bl2_aff
+
+### plot 6M error----------
+plot_err_6m_aff <- ggplot(dat_topx_6m, 
+                        aes(x= trial_type, y=error, group = dx_affect)) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = dx_affect), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = dx_affect), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = dx_affect), 
+               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "6M Error Rates", 
+       y = "Error Rate", 
+       x = "Trial Type", 
+       color = "Group") +
+  coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829", "#C44E52"),
+                     labels=c("Ctl", "Non-Aff", "Aff")) +
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_err_6m_aff
+```
+
+### Reaction Time
+```{r}
+# run the LMER, report as an ANOVA
+mod_rt <- lmer(rt_mdn ~ group * trial_type * visit + (1|subj), data = dat_topx)
+anova_rt <- anova(mod_rt, type = 3)
+anova_rt
+
+# run post-hoc tests on LMER main and significant effects
+print(emmeans(mod_rt, list(pairwise ~ group), adjust = "mvt"))
+print(emmeans(mod_rt, list(pairwise ~ trial_type), adjust = "mvt"))
+print(emmeans(mod_rt, list(pairwise ~ visit), adjust = "mvt"))
+print(emmeans(mod_rt, list(pairwise ~ group|trial_type), adjust = "mvt"))
+
+### plot reaction time ----------
+plot_rt <- ggplot(dat_topx, aes(x= trial_type, y=rt_mdn, group = interaction(group,visit))) +
+  stat_summary(fun="mean", geom="line", aes(color = group, linetype = visit), linewidth = 1.5, position = position_dodge(0.2)) +
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
+               width = 0.7, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "Median Reaction Times (ms)", 
+       y = "Median Reaction Times (ms)", 
+       x = "Trial Type", 
+       color = "Group", linetype = "Visit") +
+  coord_cartesian(ylim = c(250, 600)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
+  scale_linetype_manual(values = c("solid", "dotted", "dashed"), 
+                        labels = c("Visit 1", "Visit 2", "6-Month")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_rt
+```
+
+## BPRS
+### Total
+```{r}
+# run the LMER, report as an ANOVA
+mod_bprs <- lmer(bprs_total ~ group * visit + (1|subj), data = dat_bprs)
+anova_bprs <- anova(mod_bprs, type = 3)
+anova_bprs
+
+# run post-hoc tests on significant effects
+print(emmeans(mod_bprs, list(pairwise ~ group), adjust = "mvt"))
+```
+
+### Positive
+```{r}
+# run the LMER, report as an ANOVA
+mod_pos <- lmer(bprs_pos_ws ~ group * visit + (1|subj), data = dat_bprs)
+anova_pos <- anova(mod_pos, type = 3)
+anova_pos
+
+# run post-hoc tests on significant effects
+print(emmeans(mod_pos, list(pairwise ~ group), adjust = "mvt"))
+```
+
+### Negative
+```{r}
+# run the LMER, report as an ANOVA
+mod_neg <- lmer(bprs_neg_ws ~ group * visit + (1|subj), data = dat_bprs)
+anova_neg <- anova(mod_neg, type = 3)
+anova_neg
+
+# run post-hoc tests on significant effects
+print(emmeans(mod_neg, list(pairwise ~ group), adjust = "mvt"))
+print(emmeans(mod_neg, list(pairwise ~ visit), adjust = "mvt"))
+print(emmeans(mod_neg, list(pairwise ~ group|visit), adjust = "mvt"))
+
+### plot BPRS negative ----------
+plot_neg <- ggplot(dat_bprs, aes(x= visit, y=bprs_neg_ws)) +
+  stat_summary(fun="mean", geom="line", aes(color = group), linewidth = 1.5, position = position_dodge(0.2)) +
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 3, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
+               width = 0.7, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "BPRS Negative", 
+       y = "BPRS Negative", 
+       x = "Visit",
+       color = "Group") +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_neg
+```
+
+### Disorg
+```{r}
+# run the LMER, report as an ANOVA
+mod_disorg <- lmer(bprs_disorg_ws ~ group * visit + (1|subj), data = dat_bprs)
+anova_disorg <- anova(mod_disorg, type = 3)
+anova_disorg
+
+# run post-hoc tests on significant effects
+print(emmeans(mod_disorg, list(pairwise ~ group), adjust = "mvt"))
+```
+
+### Plot All
+```{r}
+# convert BPRS from wide to long format
+dat_bprs_long <- dat_bprs %>% 
+  select(c(subj, visit, group, group_num, bprs_pos_ws, bprs_neg_ws,
+           bprs_disorg_ws, bprs_mania_ws, bprs_dep_anx_ws)) %>% 
+  pivot_longer(cols = c(bprs_pos_ws, bprs_neg_ws, bprs_disorg_ws, 
+                        bprs_mania_ws, bprs_dep_anx_ws), 
+               names_to = "bprs_symptom", 
+               values_to = "bprs_score") %>% 
+  mutate(bprs_symptom = dplyr::recode(bprs_symptom,
+         "bprs_pos_ws" = "Pos",
+         "bprs_neg_ws" = "Neg",
+         "bprs_disorg_ws" = "Disorg",
+         "bprs_mania_ws" = "Mania",
+         "bprs_dep_anx_ws" = "Dep-Anx"))
+
+# Lineplot of BPRS all symptoms
+plot_bprs <- ggplot(dat_bprs_long, 
+                        aes(x= bprs_symptom, y=bprs_score, group = interaction(group,visit))) + 
+  stat_summary(fun="mean", geom="line", 
+               aes(color = group, linetype = visit), linewidth = 1, position = position_dodge(0.2)) + 
+  stat_summary(fun="mean", geom="point", aes(color = group), size = 2, position = position_dodge(0.2)) + 
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = group), 
+               width = 0.7, size = 1, position = position_dodge(0.2)) + 
+  labs(title = "BPRS symptoms", 
+       y = "BPRS symptom rating", 
+       x = "BPRS subfactor", 
+       color = "Group", linetype = "Visit") +
+  #coord_cartesian(ylim = c(0.05, .4)) +
+  scale_color_manual(values=c("#2C737F", "#AA8829"),
+                     labels=c("Ctl", "EP")) + 
+  scale_linetype_manual(values = c("solid", "dotted"), 
+                        labels = c("Baseline", "6-Month")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text = element_text(face="bold", size = 16),
+        axis.title = element_text(face="bold", size = 20),
+        legend.text = element_text(face="bold", size = 14),
+        legend.title = element_text(face = "bold", size = 16),
+        plot.title = element_text(face = "bold", size = 22))
+plot_bprs
+
+# Barplot of BPRS all symptom
+plot_bprs_bar <- ggplot(
+  dat_bprs_long,
+  aes(x = bprs_symptom, y = bprs_score, fill = group)
+) +
+  stat_summary(
+    fun = "mean",
+    geom = "bar",
+    position = position_dodge(width = 0.9),
+    color = "black"
+  ) +
+  stat_summary(
+    fun.data = mean_se,
+    geom = "errorbar",
+    position = position_dodge(width = 0.9),
+    width = 0.3
+  ) +
+  facet_wrap(~ visit) +
+  labs(
+    title = "BPRS Symptoms",
+    y = "BPRS Symptom Rating",
+    x = "BPRS Subfactor",
+    fill = "Group"
+  ) +
+  scale_fill_manual(
+    values = c("#2C737F", "#AA8829"),
+    labels = c("Ctl", "EP")
+  ) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(face = "bold", size = 16),
+    axis.title = element_text(face = "bold", size = 20),
+    legend.text = element_text(face = "bold", size = 14),
+    legend.title = element_text(face = "bold", size = 16),
+    plot.title = element_text(face = "bold", size = 22)
+  )
+plot_bprs_bar
+```
+
+# CORRELATIONS
+## Test Normality
+```{r}
+# Test normal distribution of variables
+# if p < .05, variable is non-normal/skewed 
+shapiro.test(dat_all$error_AX)
+shapiro.test(dat_all$error_AY)
+shapiro.test(dat_all$error_BX)
+shapiro.test(dat_all$error_BY)
+shapiro.test(dat_all$bprs_pos_ws)
+shapiro.test(dat_all$bprs_neg_ws)
+shapiro.test(dat_all$bprs_disorg_ws)
+```
+
+## Create Dataframe
+```{r}
+# create new bprs dataframe with only necessary variables
+dat_bprs_abbrev <- dat_bprs %>% 
+  select(subj, visit, bprs_total, bprs_pos_ws, bprs_neg_ws, bprs_disorg_ws, bprs_mania_ws, bprs_dep_anx_ws)
+
+# create new topx dataframe, eliminating BL2
+dat_topx_abbrev <- dat_topx %>% 
+  filter(visit == "BL1" | visit == "6M") 
+dat_topx_abbrev <- dat_topx_abbrev %>% 
+  select(subj, visit, group, d_context, d_expect, trial_type, rt_mdn, error)
+dat_topx_abbrev$visit <- as.character(dplyr::recode(dat_topx_abbrev$visit, "BL1" = "BL"))
+dat_topx_abbrev <- pivot_wider(dat_topx_abbrev, 
+                               id_cols = c(subj, visit, group, 
+                                           d_context, d_expect), 
+                               values_from = c(rt_mdn, error), 
+                               names_from = trial_type)
+
+# combine topx & bprs data
+dat_all <- dat_topx_abbrev %>%
+  left_join(dat_bprs_abbrev %>% 
+              select(subj, visit, bprs_total, bprs_pos_ws, 
+                     bprs_neg_ws, bprs_disorg_ws, bprs_mania_ws, 
+                     bprs_dep_anx_ws),
+    by = c("subj", "visit"))
+
+# create dataframes for each visit
+dat_all_bl <- dat_all %>% 
+  filter(visit == "BL")
+dat_all_6m <- dat_all %>% 
+  filter(visit == "6M")
+```
+
+## TOPX + BPRS
+```{r}
+# create dataframe for a correlation matrix of TOPX error rates and BPRS symptoms
+dat_cor1 <- dat_all %>% 
+  select(error_AX, error_AY, error_BX, bprs_pos_ws, bprs_neg_ws, bprs_disorg_ws)
+
+# compute and print correlations + p-values
+cor_results <- rcorr(as.matrix(dat_cor1), type = "pearson")
+(cor_matrix <- cor_results$r)
+(p_matrix   <- cor_results$P)
+```

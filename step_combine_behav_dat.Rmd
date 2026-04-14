@@ -13,7 +13,7 @@ rm(list=ls())
 pacman::p_load(stats, stringr, dplyr, tidyr, ggplot2, lme4, emmeans, lmerTest, Matrix, pbkrtest, psych, car, performance, parameters, data.table, tibble)
 
 # set working directory and read in data
-setwd("~/Documents/umn_work/topx_analyses/")
+# setwd("~/Documents/umn_work/topx_analyses/")
 ```
 
 ## Functions - cleaning
@@ -157,17 +157,23 @@ dat_demo <- dat_demo %>%
 # recode "highest caregiver education" variable, taking highest of mother/father
 dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$mother_education, na.rm = TRUE)
 
-# recode status_ppt_type (numeric) to group (labelled category)
-dat_demo$group <- ifelse(dat_demo$status_ppt_type == 1, "Control", 
-                     ifelse(dat_demo$status_ppt_type == 2, 
+# recode status_ppt_type to group_num
+dat_demo <- dat_demo %>%
+  mutate(status_ppt_type = ifelse(status_ppt_type == 1, 0,
+                           ifelse(status_ppt_type == 2, 1, NA))) %>%
+  rename(group_num = status_ppt_type)
+
+# create variable for group name
+dat_demo$group <- ifelse(dat_demo$group_num == 0, "Control",
+                     ifelse(dat_demo$group_num == 1, 
                             "Patient", NA))
 
 # if controls' diagnosis is NA, recode dx=0
-dat_demo$primary_dx[dat_demo$status_ppt_type == 1 &
+dat_demo$primary_dx[dat_demo$group_num == 0 &
                   is.na(dat_demo$primary_dx)] <- 0
 
 # set control duration of psychosis to NA
-dat_demo$duration_of_psychosis[dat_demo$status_ppt_type == 1] <- NA
+dat_demo$duration_of_psychosis[dat_demo$group_num == 1] <- NA
 
 # recode affective/nonaffective psychosis
 dat_demo$dx_affect <- as.character(dat_demo$primary_dx)
@@ -198,11 +204,15 @@ dat_demo$dx_5split <- as.numeric(
                 "7" = "4"))
 
 # filter out if BL2 not complete
-dat_demo <- subset(dat_demo, b2_status == "4"| b2_status == "6") # completed/withdrew at baseline 2
+# dat_demo <- subset(dat_demo, b2_status == "4"| b2_status == "6") # completed/withdrew at baseline 2
 # dat_demo <- subset(dat_demo, fu6_status == "4") # completed 6mo
 
 # start the revised combined data frame
 dat_behav <- dat_demo
+
+# save cleaned demographic info
+write.csv(dat_demo, file=paste0("data/step_demographics_clean_",
+                      gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 ```
 
 ## optional: filter dat behav by another dataset
@@ -790,14 +800,14 @@ fisher.test(dat_behav$gender_3split, dat_behav$group)
 
 # age
 # welch's two-sample t-test - report this
-t.test(age ~ status_ppt_type, data = dat_behav)
+t.test(age ~ group_num, data = dat_behav)
 # student t-test (assumes equal variances)
-t.test(age ~ status_ppt_type, data = dat_behav, var.equal = TRUE)
+t.test(age ~ group_num, data = dat_behav, var.equal = TRUE)
 # test group variances to see if t-test are appropriate
-leveneTest(dat_behav$age, dat_behav$status_ppt_type, data = dat_behav)
-var.test(age ~ status_ppt_type, data = dat_behav)
+leveneTest(dat_behav$age, dat_behav$group_num, data = dat_behav)
+var.test(age ~ group_num, data = dat_behav)
 # wilcox aka mann-whitney U test
-wilcox.test(age ~ status_ppt_type, data = dat_behav)
+wilcox.test(age ~ group_num, data = dat_behav)
 
 # race - report fisher
 chisq.test(dat_behav$race, dat_behav$group)
@@ -807,50 +817,50 @@ fisher.test(dat_behav$race, dat_behav$group)
 chisq.test(dat_behav$hispanic, dat_behav$group)
 
 # participant education
-t.test(subj_education ~ status_ppt_type, data = dat_behav) #welch's
-leveneTest(dat_behav$subj_education, dat_behav$status_ppt_type, data = dat_behav)
-var.test(subj_education ~ status_ppt_type, data = dat_behav)
-wilcox.test(subj_education ~ status_ppt_type, data = dat_behav)
+t.test(subj_education ~ group_num, data = dat_behav) #welch's
+leveneTest(dat_behav$subj_education, dat_behav$group_num, data = dat_behav)
+var.test(subj_education ~ group_num, data = dat_behav)
+wilcox.test(subj_education ~ group_num, data = dat_behav)
 
 # caregiver education
-t.test(hi_caregiver_education ~ status_ppt_type, data = dat_behav) # welch's
+t.test(hi_caregiver_education ~ group_num, data = dat_behav) # welch's
 
 # IQ
-leveneTest(dat_behav$iq, dat_behav$status_ppt_type, data = dat_behav)
+leveneTest(dat_behav$iq, dat_behav$group_num, data = dat_behav)
 shapiro.test(dat_behav$iq)
 
-t.test(iq ~ status_ppt_type, data = dat_behav) #welch's
-wilcox.test(iq ~ status_ppt_type, data = dat_behav)
+t.test(iq ~ group_num, data = dat_behav) #welch's
+wilcox.test(iq ~ group_num, data = dat_behav)
 
 # BPRS - total
-leveneTest(dat_behav$bprs_total, dat_behav$status_ppt_type, data = dat_behav)
-t.test(bprs_total ~ status_ppt_type, data = dat_behav)
-wilcox.test(bprs_total ~ status_ppt_type, data = dat_behav)
+leveneTest(dat_behav$bprs_total, dat_behav$group_num, data = dat_behav)
+t.test(bprs_total ~ group_num, data = dat_behav)
+wilcox.test(bprs_total ~ group_num, data = dat_behav)
 
 # BPRS - positive
-leveneTest(dat_behav$bprs_pos_ws, dat_behav$status_ppt_type, data = dat_behav)
-t.test(bprs_pos_ws ~ status_ppt_type, data = dat_behav)
-wilcox.test(bprs_pos_ws ~ status_ppt_type, data = dat_behav)
+leveneTest(dat_behav$bprs_pos_ws, dat_behav$group_num, data = dat_behav)
+t.test(bprs_pos_ws ~ group_num, data = dat_behav)
+wilcox.test(bprs_pos_ws ~ group_num, data = dat_behav)
 
 # BPRS - negative
-leveneTest(dat_behav$bprs_neg_ws, dat_behav$status_ppt_type, data = dat_behav)
-t.test(bprs_neg_ws ~ status_ppt_type, data = dat_behav)
-wilcox.test(bprs_neg_ws ~ status_ppt_type, data = dat_behav)
+leveneTest(dat_behav$bprs_neg_ws, dat_behav$group_num, data = dat_behav)
+t.test(bprs_neg_ws ~ group_num, data = dat_behav)
+wilcox.test(bprs_neg_ws ~ group_num, data = dat_behav)
 
 # BPRS - disorg
-leveneTest(dat_behav$bprs_disorg_ws, dat_behav$status_ppt_type, data = dat_behav)
-t.test(bprs_disorg_ws ~ status_ppt_type, data = dat_behav)
-wilcox.test(bprs_disorg_ws ~ status_ppt_type, data = dat_behav) 
+leveneTest(dat_behav$bprs_disorg_ws, dat_behav$group_num, data = dat_behav)
+t.test(bprs_disorg_ws ~ group_num, data = dat_behav)
+wilcox.test(bprs_disorg_ws ~ group_num, data = dat_behav) 
 
 # BPRS - mania
-leveneTest(dat_behav$bprs_mania_ws, dat_behav$status_ppt_type, data = dat_behav)
-t.test(bprs_mania_ws ~ status_ppt_type, data = dat_behav)
-wilcox.test(bprs_mania_ws ~ status_ppt_type, data = dat_behav) 
+leveneTest(dat_behav$bprs_mania_ws, dat_behav$group_num, data = dat_behav)
+t.test(bprs_mania_ws ~ group_num, data = dat_behav)
+wilcox.test(bprs_mania_ws ~ group_num, data = dat_behav) 
 
 # BPRS - depr/anx
-leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$status_ppt_type, data = dat_behav)
-t.test(bprs_dep_anx_ws ~ status_ppt_type, data = dat_behav)
-wilcox.test(bprs_dep_anx_ws ~ status_ppt_type, data = dat_behav) 
+leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$group_num, data = dat_behav)
+t.test(bprs_dep_anx_ws ~ group_num, data = dat_behav)
+wilcox.test(bprs_dep_anx_ws ~ group_num, data = dat_behav) 
 ```
 
 
