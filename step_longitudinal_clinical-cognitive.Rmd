@@ -320,6 +320,9 @@ table_m_sd("hi_caregiver_education")
 ```{r}
 # dx: 0=control, 1=Sz/Szform, 2=SzAff, 3=BP, 4=MDD, 5=NOS/other
 table_ct_pct("dx_5split")
+
+# 0 = Control, 1 = Non-Affective, 2 = Affective
+table_ct_pct("dx_affect")
 ```
 
 ### BPRS - Pt
@@ -1369,7 +1372,133 @@ plot_gf_bar
 ```
 
 
-# CORRELATIONS
+# ICCs
+## prep data for ICCs
+```{r}
+# remove any ppts who don't have both timepoints
+dat_bprs_bl_6m <- dat_bprs %>%
+  group_by(subj) %>%
+  filter(all(c("BL1", "6M") %in% visit)) %>%
+  ungroup()
+
+# remove BL2
+dat_topx_bl_6m <- dat_topx %>%
+  filter(visit != "BL2")
+
+# remove ppts who don't have both timepoints
+dat_topx_bl_6m <- dat_topx_bl_6m %>% 
+  group_by(subj) %>%
+  filter(all(c("BL1", "6M") %in% visit)) %>%
+  ungroup()
+
+# remove duplicate 6M visit
+dat_topx_bl_6m <- dat_topx_bl_6m %>% 
+  filter(!(subj == "SP2150" & visit == "6M" & date == "20231130"))
+```
+
+## function for TOPX ICC
+```{r}
+dat_icc_topx <- dat_topx_bl_6m %>% 
+  select(c(subj, visit, trial_type, error))
+
+# version 1 - done manually
+# dat_icc_AX <- dat_icc_topx %>% 
+#   filter(trial_type == "AX") %>%
+#   pivot_wider(names_from = visit, 
+#               values_from = error) %>%
+#   select(-c(subj, trial_type))
+# ICC(dat_icc_AX)
+# 
+# dat_icc_AY <- dat_icc_topx %>% 
+#   filter(trial_type == "AY") %>%
+#   pivot_wider(names_from = visit, 
+#               values_from = error) %>%
+#   select(-c(subj, trial_type))
+# ICC(dat_icc_AY)
+# 
+# dat_icc_BX <- dat_icc_topx %>% 
+#   filter(trial_type == "BX") %>%
+#   pivot_wider(names_from = visit, 
+#               values_from = error) %>%
+#   select(-c(subj, trial_type))
+# ICC(dat_icc_BX)
+# 
+# dat_icc_BY <- dat_icc_topx %>% 
+#   filter(trial_type == "BY") %>%
+#   pivot_wider(names_from = visit, 
+#               values_from = error) %>%
+#   select(-c(subj, trial_type))
+# ICC(dat_icc_BY)
+
+## version 2 - returns entire ICC table
+# library(purrr)
+# icc_results <- c("AX", "AY", "BX", "BY") %>%
+#   set_names() %>%
+#   map(~ dat_icc_topx %>%
+#         filter(trial_type == .x) %>%
+#         pivot_wider(names_from = visit, values_from = error) %>%
+#         select(-subj, -trial_type) %>%
+#         ICC())
+# icc_results
+
+## version 3 - provides the whole table, doesn't sort by group
+calc_ICC_topx <- function(icc_trialtype, var = "error") {
+  library(dplyr)
+  library(tidyr)
+  library(psych)
+  dat_icc <- dat_topx_bl_6m %>%
+    filter(trial_type == icc_trialtype) %>%
+    select(subj, visit, !!sym(var)) %>%
+    pivot_wider(names_from = visit, values_from = !!sym(var)) %>%
+    select(-subj)
+  icc_out <- ICC(dat_icc, lmer = TRUE)
+  return(icc_out)
+}
+calc_ICC_topx("AX", "error")
+calc_ICC_topx("AY", "error")
+calc_ICC_topx("BX", "error")
+calc_ICC_topx("BY", "error")
+```
+
+## function for BPRS ICC
+```{r}
+dat_icc_bprs <- dat_bprs_bl_6m %>% 
+  select(c(subj, visit, bprs_pos_ws, 
+           bprs_neg_ws, bprs_disorg_ws, bprs_mania_ws,
+           bprs_dep_anx_ws)) %>% 
+  pivot_longer(cols = c(bprs_pos_ws, bprs_neg_ws, bprs_disorg_ws,
+                        bprs_mania_ws, bprs_dep_anx_ws),
+             names_to = "bprs", values_to = "value") %>% 
+  mutate(bprs = dplyr::recode(bprs,
+                              bprs_pos_ws = "pos",
+                              bprs_neg_ws = "neg",
+                              bprs_disorg_ws = "disorg",
+                              bprs_mania_ws = "mania",
+                              bprs_dep_anx_ws = "dep_anx"))
+
+## version 3 - provides the whole table, doesn't sort by group
+calc_ICC_bprs <- function(icc_bprsfactor, var = "value") {
+  library(dplyr)
+  library(tidyr)
+  library(psych)
+  dat_icc <- dat_icc_bprs %>%
+    filter(bprs == icc_bprsfactor) %>%
+    select(subj, visit, !!sym(var)) %>%
+    pivot_wider(names_from = visit, values_from = !!sym(var)) %>%
+    select(-subj)
+  icc_out <- ICC(dat_icc, lmer = TRUE)
+  return(icc_out)
+}
+calc_ICC_bprs("pos", "value")
+calc_ICC_bprs("neg", "value")
+calc_ICC_bprs("disorg", "value")
+calc_ICC_bprs("mania", "value")
+calc_ICC_bprs("dep_anx", "value")
+
+```
+
+
+# Spearman CORRELATIONS
 ## TOPX + BPRS
 ### Create Dataframe
 ```{r}
