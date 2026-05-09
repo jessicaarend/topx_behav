@@ -1,6 +1,6 @@
-# Title: TOPX Visualizing Accuracy and RT (for EAB)
+# Title: TOPX Accuracy and RT Descriptives & Visualizations
 # Author: Jessica Arend
-# Last updated: 20231204
+# Last updated: 2026.05.09
 
 # clear workspace
 rm(list=ls())
@@ -9,18 +9,39 @@ rm(list=ls())
 pacman::p_load(dplyr, stringr, ggplot2, tidyr)
 
 # load in data
-dat <- read.csv("~/Documents/umn_work/topx_analyses/topx_clean/aggregate_data/aggregate_topx_20250315.csv")
+dat <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_clean/aggregate_data/aggregate_topx_filtered_20260509.csv")
 View(dat)
 
 # valid and invalid data ----------
 # used this to ID subjects to manually delete from excel aggregate sheet
-dat_ex <- dat %>% filter(trial_type == "AX" & error > .90 | trial_type == "AY" & error > .90 | trial_type == "BX" & error > .90 | trial_type == "BY" & error > .50 | n > 136)
+dat_ex <- dat %>% filter(trial_type == "AX" & error > .90 | trial_type == "AY" & error > .90 | trial_type == "BX" & error > .90 | trial_type == "BY" & error > .50) #| n > 136)
+
+# create variable to track why they should be excluded
+dat_ex <- dat_ex %>%
+  mutate(
+    ex_reason = case_when(
+      (trial_type == "AX" & error > .90) ~ "AX error > .90",
+      (trial_type == "AY" & error > .90) ~ "AY error > .90",
+      (trial_type == "BX" & error > .90) ~ "BX error > .90",
+      (trial_type == "BY" & error > .50) ~ "BY error > .50",
+      #n > 136 ~ "n > 136",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(ex_reason))
 View(dat_ex)
 
+# filter df to subj with invalid baseline data
+dat_ex_bl <- dat_ex %>% 
+  filter(visit == "BL1" | visit == "BL2")
 n_invalid <- length(unique(dat_ex$subj))
 
+# make list of subj to exclude at baseline
+subj_ex <- unique(dat_ex_bl$subj)
+print(subj_ex)
+
 # save as invalid
-#write.csv(dat_ex,file=paste0("~/Documents/UMN Work & General/TOPX analyses/mri aggregated data/aggregated_data_invalid_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
+write.csv(dat_ex,file=paste0("~/Documents/umn_work/analyses/topx_analyses/topx_clean/aggregate_data/aggregate_topx_invalid_",gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 valid_dat <- dat[!(dat$subj %in% dat_ex$subj),]
 

@@ -72,9 +72,9 @@ dat_demo <- dat_demo %>%
 
 # fix missing gender variables for nonbinary ppts
 # manually code some nonbinary ppts
-tnb_ppts <- c("SP1030", "SP1149", "SP2014", "SP2084", "SP2112", "SP2116", "SP2120", 
+tnb_ppts <- c("SP1030", "SP1149", "SP2014", "SP2084", "SP2112", "SP2116", "SP2120",
               "SP2128", "SP2144", "SP2149","SP2160", "SP2195", "SP2197", "SP2207")
-dat_demo <- dat_demo %>% 
+dat_demo <- dat_demo %>%
   mutate(gender = ifelse(subj %in% tnb_ppts, "3", gender))
 
 # recode to 5-way split: 1=cis man, 2=cis woman, 3=trans man, 4=trans woman, 5 = enby
@@ -158,7 +158,6 @@ dat_demo <- dat_demo %>%
     subj %in% c("SP1097", "SP1099") ~ 0,
     TRUE ~ hispanic))
 
-
 # recode "highest caregiver education" variable, taking highest of mother/father
 dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$mother_education, na.rm = TRUE)
 
@@ -208,9 +207,29 @@ dat_demo$dx_5split <- as.numeric(
                 "6" = "3",
                 "7" = "4"))
 
+# recode diagnosis - 6 split
+# before: 0=control, 1=Sz, 2=SzAff, 3=Szform, 4=NOS, 5=BP, 6=MDD, 7=other
+# now:  0=control, 1=Sz/Szform, 2=SzAff, 3=BP, 4=MDD, 5=other/NOS
+dat_demo$dx_6split <- as.character(dat_demo$primary_dx)
+dat_demo$dx_6split <- as.numeric(
+  dplyr::recode(dat_demo$primary_dx,
+                "0" = "0",
+                "1" = "1",
+                "2" = "2",
+                "3" = "1",
+                "4" = "5",
+                "5" = "3",
+                "6" = "4",
+                "7" = "5"))
+
 # filter out if BL2 not complete
 # dat_demo <- subset(dat_demo, b2_status == "4"| b2_status == "6") # completed/withdrew at baseline 2
 # dat_demo <- subset(dat_demo, fu6_status == "4") # completed 6mo
+
+# create variable for visit
+dat_demo <- dat_demo %>% 
+  mutate(visit = "BL1",
+         .after = demo_date)
 
 # start the revised combined data frame
 dat_behav <- dat_demo
@@ -222,8 +241,9 @@ write.csv(dat_demo, file=paste0("data/step_demographics_clean_",
 
 ## optional: filter dat behav by another dataset
 ```{r}
-ddm_sample_subjx <- read.csv("~/Documents/umn_work/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20250316.csv")
-dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+# ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260423.csv")
+# dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+# dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
 ```
 
 ## BPRS
@@ -304,7 +324,7 @@ write.csv(dat_bprs, file=paste0("data/step_bprs_clean_",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # match BPRS data to all behav data
-dat_behav <- merge(dat_behav, dat_bprs, by = "subj", all.x = TRUE)
+dat_behav <- merge(dat_behav, dat_bprs, by = c("subj", "visit"), all.y = TRUE)
 ```
  
 ## SANS-SAPS
@@ -441,7 +461,7 @@ write.csv(dat_sanssaps, file=paste0("data/step_sanssaps_clean_",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # match SANS-SAPS data to all behav data
-dat_behav <- merge(dat_behav, dat_sanssaps, by = "subj", all.x = TRUE)
+dat_behav <- merge(dat_behav, dat_sanssaps, by = c("subj", "visit"), all.x = TRUE)
 ```
 
 ## SPQ
@@ -480,8 +500,13 @@ dat_spq <- dat_spq %>%
 dat_spq <- dat_spq %>%
   select(subj, spq_repeat_instance, spq_date, spq_total, spq_cp, spq_do, spq_ip)
 
+# create variable for visit
+dat_spq <- dat_spq %>% 
+  mutate(visit = "BL1",
+         .after = spq_date)
+
 # match SPQ data to all behav data
-dat_behav <- merge(dat_behav, dat_spq, by = "subj", all.x = TRUE)
+dat_behav <- merge(dat_behav, dat_spq, by = c("subj", "visit"), all.x = TRUE)
 ```
 
 ## GFS/GFR
@@ -518,7 +543,7 @@ write.csv(dat_gf, file=paste0("data/step_gf_clean_",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # match GFS/GFR data to all behav data
-dat_behav <- merge(dat_behav, dat_gf, by = "subj", all.x = TRUE)
+dat_behav <- merge(dat_behav, dat_gf, by = (c("subj", "visit")), all.x = TRUE)
 ```
 
 ## IQ
@@ -543,11 +568,36 @@ dat_iq[dat_iq$subj == "SP2150", "iq"] <- 102
 dat_iq[dat_iq$subj == "SP2199", "iq"] <- 99 #biracial, using Black estimate
 dat_iq[dat_iq$subj == "SP2263", "iq"] <- 91
 
+# what is the variable type/class of this variable?
 class(dat_iq$iq)
 
+# create variable for visit
+dat_iq <- dat_iq %>% 
+  mutate(visit = "BL1",
+         .after = iq_date)
+
 # match TMB-IQ data to all behav data
-dat_behav <- merge(dat_behav, dat_iq, by = "subj", all.x = TRUE)
+dat_behav <- merge(dat_behav, dat_iq, by = (c("subj","visit")), all.x = TRUE)
 str(dat_behav)
+```
+
+## optional: filter dat behav by another dataset
+```{r}
+ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260423.csv")
+dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
+
+# make sure everyone has a group variable at all timepoints
+dat_behav <- dat_behav %>%
+  group_by(subj) %>%
+  mutate(
+    group = ifelse(
+      is.na(group) & visit == "6M",
+      group[visit == "BL1"][1],  # take BL1 value
+      group
+    )
+  ) %>%
+  ungroup()
 ```
 
 ## TOPX
@@ -574,7 +624,7 @@ str(dat_behav)
 ```{r, echo = FALSE, include = FALSE}
 # Save file ----------------
 write.csv(dat_behav,
-          file=paste0("/Users/arend103/Documents/umn_work/topx_analyses/topx_behav/data/step_behav_dat",
+          file=paste0("/Users/arend103/Documents/umn_work/analyses/topx_analyses/topx_behav/data/step_behav_dat",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # save copy to DDM folder
@@ -584,13 +634,19 @@ write.csv(dat_behav,
 # Descriptives - Pt/Ctl
 ```{r}
 # number of patients and controls
-table(dat_behav$group)
+table(dat_demo$group)
 
 ### create datasets by group ----------
 dat_behav_pt <- subset(dat_behav, group == "Patient") 
 dat_behav_ctl <- subset(dat_behav, group == "Control")
 nPt <- nrow(dat_behav_pt)
 nCtl <- nrow(dat_behav_ctl)
+
+### create datasets by group - demographics only ----------
+# dat_demo_pt <- subset(dat_demo, group == "Patient") 
+# dat_demo_ctl <- subset(dat_demo, group == "Control")
+# nPt <- nrow(dat_demo_pt)
+# nCtl <- nrow(dat_demo_ctl)
 ```
 
 ## Functions
@@ -627,28 +683,42 @@ table_ct_pct_2split <- function(var) {
 ### M + SD table
 ```{r, echo = FALSE}
 # function for mean, sd, and NA table - 2 split (pt/ctl)
+# table_m_sd_2split <- function(var) {
+#   
+#   # Calculate mean and standard deviation for patients
+#   mean_pt <- mean(dat_behav_pt[[var]], na.rm = TRUE)
+#   sd_pt <- sd(dat_behav_pt[[var]], na.rm = TRUE)
+#   
+#   # Calculate mean and standard deviation for controls
+#   mean_ctl <- mean(dat_behav_ctl[[var]], na.rm = TRUE)
+#   sd_ctl <- sd(dat_behav_ctl[[var]], na.rm = TRUE)
+#   
+#   # Count missing values for patients and controls
+#   na_pt <- sum(is.na(dat_behav_pt[[var]]))
+#   na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
+#   
+#   # Create a summary table
+#   summary <- tibble(
+#     Group = c("Patient", "Control"),
+#     Mean = c(round(mean_pt, 2), round(mean_ctl, 2)),
+#     SD = c(round(sd_pt, 2), round(sd_ctl, 2)),
+#     Missing_Values = c(na_pt, na_ctl)  # Add missing values count
+#   )
+#   summary %>% mutate(across(where(is.numeric), as.character)) # this is needed to report two digits
+# }
+
+# function for mean, sd, and NA table - 2 split (pt/ctl)
 table_m_sd_2split <- function(var) {
-  
-  # Calculate mean and standard deviation for patients
-  mean_pt <- mean(dat_behav_pt[[var]], na.rm = TRUE)
-  sd_pt <- sd(dat_behav_pt[[var]], na.rm = TRUE)
-  
-  # Calculate mean and standard deviation for controls
-  mean_ctl <- mean(dat_behav_ctl[[var]], na.rm = TRUE)
-  sd_ctl <- sd(dat_behav_ctl[[var]], na.rm = TRUE)
-  
-  # Count missing values for patients and controls
-  na_pt <- sum(is.na(dat_behav_pt[[var]]))
-  na_ctl <- sum(is.na(dat_behav_ctl[[var]]))
-  
-  # Create a summary table
-  summary <- tibble(
-    Group = c("Patient", "Control"),
-    Mean = c(round(mean_pt, 2), round(mean_ctl, 2)),
-    SD = c(round(sd_pt, 2), round(sd_ctl, 2)),
-    Missing_Values = c(na_pt, na_ctl)  # Add missing values count
-  )
-  summary %>% mutate(across(where(is.numeric), as.character)) # this is needed to report two digits
+  dat_behav %>%
+    group_by(group, visit) %>%   # assumes columns named "Group" and "Visit"
+    summarise(
+      Mean = round(mean(.data[[var]], na.rm = TRUE), 2),
+      SD = round(sd(.data[[var]], na.rm = TRUE), 2),
+      Missing_Values = sum(is.na(.data[[var]])),
+      .groups = "drop"
+    ) %>%
+    arrange(group, visit) %>%   # sort by Group then Visit
+    mutate(across(where(is.numeric), as.character))
 }
 ```
 
@@ -673,26 +743,59 @@ table_bprs <- function(data) {
     )
   summary
 }
+
+# table_bprs <- function(data) {
+#   
+#   data %>%
+#     pivot_longer(
+#       cols = c(
+#       bprs_positive,
+#       bprs_negative,
+#       bprs_disorganized,
+#       bprs_mania,
+#       bprs_depression
+#     ),
+#       names_to = "Variable",
+#       values_to = "Value"
+#     ) %>%
+#     mutate(
+#       Variable = recode(Variable,
+#         bprs_positive = "BPRS Positive",
+#         bprs_negative = "BPRS Negative",
+#         bprs_disorganized = "BPRS Disorganized",
+#         bprs_mania = "BPRS Mania",
+#         bprs_depression = "BPRS Depression"
+#       )
+#     ) %>%
+#     group_by(group, visit, Variable) %>%
+#     summarise(
+#       Mean = round(mean(Value, na.rm = TRUE), 2),
+#       SD = round(sd(Value, na.rm = TRUE), 2),
+#       .groups = "drop"
+#     ) %>%
+#     arrange(group, visit, Variable) %>%
+#     mutate(across(where(is.numeric), as.character))
+# }
 ```
 
 ### BPRS - W/S average
 ```{r, echo = FALSE}
-table_bprs_ws <- function(data) {
+table_bprs_ws_avg <- function(data) {
   summary <- tibble(
     Variable = c("BPRS Positive", "BPRS Negative", 
                  "BPRS Disorganized", "BPRS Mania", "BPRS Depression"),
     Mean = c(
-      round((mean(data$bprs_pos_ws, na.rm = TRUE)/5), 2),
-      round((mean(data$bprs_neg_ws, na.rm = TRUE)/3), 2),
-      round((mean(data$bprs_disorg_ws, na.rm = TRUE)/6), 2),
-      round((mean(data$bprs_mania_ws, na.rm = TRUE)/5), 2),
-      round((mean(data$bprs_dep_anx_ws, na.rm = TRUE)/4), 2)),
+      round((mean(data$bprs_pos_ws_avg, na.rm = TRUE)/5), 2),
+      round((mean(data$bprs_neg_ws_avg, na.rm = TRUE)/3), 2),
+      round((mean(data$bprs_disorg_ws_avg, na.rm = TRUE)/6), 2),
+      round((mean(data$bprs_mania_ws_avg, na.rm = TRUE)/5), 2),
+      round((mean(data$bprs_dep_anx_ws_avg, na.rm = TRUE)/4), 2)),
     SD = c(
-      round((sd(data$bprs_pos_ws, na.rm = TRUE)/5), 2),
-      round((sd(data$bprs_neg_ws, na.rm = TRUE)/3), 2),
-      round((sd(data$bprs_disorg_ws, na.rm = TRUE)/6), 2),
-      round((sd(data$bprs_mania_ws, na.rm = TRUE)/5), 2),
-      round((sd(data$bprs_dep_anx_ws, na.rm = TRUE)/4), 2))
+      round((sd(data$bprs_pos_ws_avg, na.rm = TRUE)/5), 2),
+      round((sd(data$bprs_neg_ws_avg, na.rm = TRUE)/3), 2),
+      round((sd(data$bprs_disorg_ws_avg, na.rm = TRUE)/6), 2),
+      round((sd(data$bprs_mania_ws_avg, na.rm = TRUE)/5), 2),
+      round((sd(data$bprs_dep_anx_ws_avg, na.rm = TRUE)/4), 2))
     )
   summary
 }
@@ -705,17 +808,17 @@ table_bprs_ws_tot <- function(data) {
     Variable = c("BPRS Positive", "BPRS Negative", 
                  "BPRS Disorganized", "BPRS Mania", "BPRS Depression"),
     Mean = c(
-      round(mean(data$bprs_pos_ws, na.rm = TRUE), 2),
-      round(mean(data$bprs_neg_ws, na.rm = TRUE), 2),
-      round(mean(data$bprs_disorg_ws, na.rm = TRUE), 2),
-      round(mean(data$bprs_mania_ws, na.rm = TRUE), 2),
-      round(mean(data$bprs_dep_anx_ws, na.rm = TRUE), 2)),
+      round(mean(data$bprs_pos_ws_tot, na.rm = TRUE), 2),
+      round(mean(data$bprs_neg_ws_tot, na.rm = TRUE), 2),
+      round(mean(data$bprs_disorg_ws_tot, na.rm = TRUE), 2),
+      round(mean(data$bprs_mania_ws_tot, na.rm = TRUE), 2),
+      round(mean(data$bprs_dep_anx_ws_tot, na.rm = TRUE), 2)),
     SD = c(
-      round(sd(data$bprs_pos_ws, na.rm = TRUE), 2),
-      round(sd(data$bprs_neg_ws, na.rm = TRUE), 2),
-      round(sd(data$bprs_disorg_ws, na.rm = TRUE), 2),
-      round(sd(data$bprs_mania_ws, na.rm = TRUE), 2),
-      round(sd(data$bprs_dep_anx_ws, na.rm = TRUE), 2))
+      round(sd(data$bprs_pos_ws_tot, na.rm = TRUE), 2),
+      round(sd(data$bprs_neg_ws_tot, na.rm = TRUE), 2),
+      round(sd(data$bprs_disorg_ws_tot, na.rm = TRUE), 2),
+      round(sd(data$bprs_mania_ws_tot, na.rm = TRUE), 2),
+      round(sd(data$bprs_dep_anx_ws_tot, na.rm = TRUE), 2))
     )
   summary
 }
@@ -814,26 +917,85 @@ table_ct_pct_2split("primary_dx")
 table_ct_pct_2split("dx_5split")
 ```
 
+### Diagnosis - 6 split
+```{r}
+# dx: 0 = control, 1 = Sz/Szform, 2 = SzAff, 3 = BP, 4 = MDD, 5 = NOS/other
+table_ct_pct_2split("dx_6split")
+```
+
 ### BPRS total
 ```{r}
 table_m_sd_2split("bprs_total")
 ```
 
-### BPRS - Pt Wilson-Sponheim Factor Average
+### BPRS - General Factor Average
 ```{r}
 #table_bprs(dat_behav_pt)
-table_bprs_ws(dat_behav_pt)
+table_bprs_ws_avg(dat_behav_pt)
+
+# table_bprs(dat_behav)
+
+dat_behav %>%
+  group_by(group, visit) %>%
+  summarise(
+    pos_mean = mean(bprs_positive, na.rm = TRUE),
+    pos_sd   = sd(bprs_positive, na.rm = TRUE),
+    neg_mean = mean(bprs_negative, na.rm = TRUE),
+    neg_sd   = sd(bprs_negative, na.rm = TRUE),
+    disorg_mean = mean(bprs_disorganized, na.rm = TRUE),
+    disorg_sd   = sd(bprs_disorganized, na.rm = TRUE),
+    mania_mean = mean(bprs_mania, na.rm = TRUE),
+    mania_sd   = sd(bprs_mania, na.rm = TRUE),
+    dep_mean = mean(bprs_depression, na.rm = TRUE),
+    dep_sd   = sd(bprs_depression, na.rm = TRUE),
+    .groups = "drop"
+  )
 ```
 
-### BPRS - Pt Wilson-Sponheim Factor Total
+###BPRS W-S Avg
+```{r}
+dat_behav %>%
+  group_by(group, visit) %>%
+  summarise(
+    pos_mean = mean(bprs_pos_ws_avg, na.rm = TRUE),
+    pos_sd   = sd(bprs_pos_ws_avg, na.rm = TRUE),
+    neg_mean = mean(bprs_neg_ws_avg, na.rm = TRUE),
+    neg_sd   = sd(bprs_neg_ws_avg, na.rm = TRUE),
+    disorg_mean = mean(bprs_disorg_ws_avg, na.rm = TRUE),
+    disorg_sd   = sd(bprs_disorg_ws_avg, na.rm = TRUE),
+    mania_mean = mean(bprs_mania_ws_avg, na.rm = TRUE),
+    mania_sd   = sd(bprs_mania_ws_avg, na.rm = TRUE),
+    dep_mean = mean(bprs_dep_anx_ws_avg, na.rm = TRUE),
+    dep_sd   = sd(bprs_dep_anx_ws_avg, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+### BPRS W-S Total
 ```{r}
 #table_bprs(dat_behav_pt)
-table_bprs_ws_tot(dat_behav_pt)
+#table_bprs_ws_tot(dat_behav_pt)
+
+dat_behav %>%
+  group_by(group, visit) %>%
+  summarise(
+    pos_mean = mean(bprs_pos_ws_tot, na.rm = TRUE),
+    pos_sd   = sd(bprs_pos_ws_tot, na.rm = TRUE),
+    neg_mean = mean(bprs_neg_ws_tot, na.rm = TRUE),
+    neg_sd   = sd(bprs_neg_ws_tot, na.rm = TRUE),
+    disorg_mean = mean(bprs_disorg_ws_tot, na.rm = TRUE),
+    disorg_sd   = sd(bprs_disorg_ws_tot, na.rm = TRUE),
+    mania_mean = mean(bprs_mania_ws_tot, na.rm = TRUE),
+    mania_sd   = sd(bprs_mania_ws_tot, na.rm = TRUE),
+    dep_mean = mean(bprs_dep_anx_ws_tot, na.rm = TRUE),
+    dep_sd   = sd(bprs_dep_anx_ws_tot, na.rm = TRUE),
+    .groups = "drop"
+  )
 ```
 ### BPRS - Ctl Wilson-Sponheim Factor Average
 ```{r}
 #table_bprs(dat_behav_ctl)
-table_bprs_ws(dat_behav_ctl)
+#table_bprs_ws(dat_behav_ctl)
 ```
 
 ### BPRS - Ctl Wilson-Sponheim Factor Total
