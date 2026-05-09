@@ -59,60 +59,87 @@ clean_rep_inst <- function(data, date) {
 ### demographics -------
 # pull data from REDCap > "Demographics + Dx" report 
 # load in and clean data
-dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20250916.csv")
+dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20260509.csv")
 dat_demo <- clean_data(dat_demo)
 
 # remove unnecessary rows
 dat_demo <- subset(dat_demo, select = -c(redcap_event_name, redcap_repeat_instrument, redcap_repeat_instance, clinical_status))
 
+# remove STEP Phase 2 direct enrollees
+dat_demo <- dat_demo %>% 
+  filter(demo_date != "")
+```
+
+### gender/sexuality
+```{r}
 # recode gender into one variable, rather than two
+# cis or trans: 1 = cis, 2 = trans/nonbinary, 3 = prefer not to say
+# gender_cis: 1 = man, 2 = woman, 3 = other
+# gender_trans: 1 = man, 2 = woman, 3 = nonbinary
+# gender: 1=man, 2=woman, 3=nonbinary, 4 = prefer not to say/unreported
 dat_demo <- dat_demo %>% 
   mutate(gender = if_else(is.na(dat_demo$gender_cis), dat_demo$gender_trans, dat_demo$gender_cis),
                   .after = "gender_other")
 
-# fix missing gender variables for nonbinary ppts
+# fix missing gender variables
 # manually code some nonbinary ppts
-tnb_ppts <- c("SP1030", "SP1149", "SP2014", "SP2084", "SP2112", "SP2116", "SP2120",
-              "SP2128", "SP2144", "SP2149","SP2160", "SP2195", "SP2197", "SP2207")
-dat_demo <- dat_demo %>%
-  mutate(gender = ifelse(subj %in% tnb_ppts, "3", gender))
+nb_ppts <- c("SP1030", # other = nonbinary
+              "SP1149", # other = agender
+              "SP2014", # other = nonbinary
+              "SP2112", # other = nonbinary
+              "SP2120", # other = nonbinary
+              "SP2144", # other = "closeted trans"
+              "SP2149", #other = nonbinary
+              "SP2197") # other = "non conforming to gender"
+# manually code prefer not to say/unreported ppts
+pns_ppts <- c("SP2116", 
+              "SP2128", 
+              "SP2160", 
+              "SP2195", 
+              "SP2207")
 
-# recode to 5-way split: 1=cis man, 2=cis woman, 3=trans man, 4=trans woman, 5 = enby
+dat_demo <- dat_demo %>%
+  mutate(gender = ifelse(subj %in% nb_ppts, "3", gender)) %>% 
+  mutate(gender = ifelse(subj %in% pns_ppts, "4", gender))
+table(dat_demo$gender)
+
+# recode to 6-way split: 1=cis man, 2=cis woman, 3=trans man, 4=trans woman, 5 = nonbinary, 6 = prefer not to say/unreported
 dat_demo <- dat_demo %>%
   mutate(
-    gender_5split = case_when(
+    gender_6split = case_when(
+      gender == 3 ~ 5, # nonbinary
+      gender == 4 ~ 6, # prefer not to say
       cis_or_trans==1 & gender_cis==1 ~ 1, # cis man
       cis_or_trans==1 & gender_cis==2 ~ 2, # cis woman
       cis_or_trans==2 & gender_trans==1 ~ 3, #trans man
       cis_or_trans==2 & gender_trans==2 ~ 4, # trans woman
       cis_or_trans==2 & gender_trans==3 ~ 5), #nonbinary
     .after = "gender")
-dat_demo <- dat_demo %>% 
-  mutate(gender_5split = ifelse(subj %in% tnb_ppts, "5", gender_5split))
+table(dat_demo$gender_6split)
 
-# recode cis or trans: 1 = cis man, 2 = cis woman, 3 = trans/enby
+# recode to 4-way split: 1 = cis man, 2 = cis woman, 3 = trans/enby, 4 = prefer not to say/unreported
 dat_demo <- dat_demo %>% 
   mutate(
-    gender_3split = case_when(
-      gender_5split == 1 ~ 1,
-      gender_5split == 2 ~ 2, 
-      gender_5split == 3 ~ 3,
-      gender_5split == 4 ~ 3,
-      gender_5split == 5 ~ 3),
-    .after = "gender_5split")
+    gender_4split = case_when(
+      gender_6split == 1 ~ 1,# cis man
+      gender_6split == 2 ~ 2, # cis woman
+      gender_6split == 3 ~ 3, # trans man -> tnb
+      gender_6split == 4 ~ 3, # trans woman -> tnb
+      gender_6split == 5 ~ 3, # nonbinary -> tnb
+      gender_6split == 6 ~ 4), # prefer not to say
+    .after = "gender_6split")
 
-# recode cis or trans: 0 = cis, 1 = trans/enby
+# recode cis or trans: 0 = cis, 1 = trans/enby, 2 = prefer not to say/unreported
 dat_demo <- dat_demo %>% 
   mutate(
     gender_cis_trans = case_when(
-      gender_5split == 1 ~ 0,
-      gender_5split == 2 ~ 0, 
-      gender_5split == 3 ~ 1,
-      gender_5split == 4 ~ 1,
-      gender_5split == 5 ~ 1),
-    .after = "gender_5split")
-dat_demo <- dat_demo %>% 
-  mutate(gender_5split = ifelse(subj %in% tnb_ppts, "5", gender_5split))
+      gender_6split == 1 ~ 0, #cis man -> cis
+      gender_6split == 2 ~ 0, #cis woman -> cis
+      gender_6split == 3 ~ 1, #trans man -> tnb
+      gender_6split == 4 ~ 1, # trans woman -> tnb
+      gender_6split == 5 ~ 1, # nonbinary -> tnb
+      gender_6split == 6 ~ 2), # prefer not to say
+    .after = "gender_6split")
 
 # recode sexual orientation 1: heterosexual, 2 = non-het, 3 = UNK
 dat_demo <- dat_demo %>%
@@ -126,30 +153,39 @@ dat_demo <- dat_demo %>%
     .after = "sexual_orientation")
 
 # recode lgbtq+
-# gender_3split: 1 = cis man, 2 = cis woman, 3 = trans/enby
+# gender_4split: 1 = cis man, 2 = cis woman, 3 = trans/enby, 4 = UNK
 # recode sexual orientation 1: heterosexual, 2 = non-het, 3 = UNK
 # lgbtq: 1 = cis-straight, 2 = queer/trans, 3 = UNK
 dat_demo <- dat_demo %>%
   mutate(
     lgbtq = case_when(
-      gender_3split==1 & sexuality_3split==1 ~ 1, # cis man-straight
-      gender_3split==1 & sexuality_3split==2 ~ 2, # cis man-queer
-      gender_3split==1 & sexuality_3split==3 ~ 3, # cis man-UNK
-      gender_3split==2 & sexuality_3split==1 ~ 1, # cis woman-straight
-      gender_3split==2 & sexuality_3split==2 ~ 2, # cis woman-queer
-      gender_3split==2 & sexuality_3split==3 ~ 3, # cis woman-UNK
-      gender_3split==3 & sexuality_3split==1 ~ 2, # trans-straight
-      gender_3split==3 & sexuality_3split==2 ~ 2, # trans-queer
-      gender_3split==3 & sexuality_3split==3 ~ 2), # trans-UNK
+      gender_4split==1 & sexuality_3split==1 ~ 1, # cis man-straight
+      gender_4split==1 & sexuality_3split==2 ~ 2, # cis man-queer
+      gender_4split==1 & sexuality_3split==3 ~ 3, # cis man-UNK
+      gender_4split==2 & sexuality_3split==1 ~ 1, # cis woman-straight
+      gender_4split==2 & sexuality_3split==2 ~ 2, # cis woman-queer
+      gender_4split==2 & sexuality_3split==3 ~ 3, # cis woman-UNK
+      gender_4split==3 & sexuality_3split==1 ~ 2, # trans-straight
+      gender_4split==3 & sexuality_3split==2 ~ 2, # trans-queer
+      gender_4split==3 & sexuality_3split==3 ~ 2, # trans-UNK
+      gender_4split==4 & sexuality_3split==1 ~ 3, # UNK-straight
+      gender_4split==4 & sexuality_3split==2 ~ 2, #UNK-queer
+      gender_4split==4 & sexuality_3split==3 ~ 3), #UNK-UNK
     .after = "sexuality_3split")
+```
 
-# recode race NAs/other
+### race/ethnicity
+```{r}
+# recode race NAs as unknown/other
+# race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial, 6=unknown/other
 dat_demo <- dat_demo %>%
   mutate(race = ifelse(is.na(race), 6, race))
-dat_demo <- dat_demo %>%
-  mutate(race_5split = ifelse(race == 6, 5, race))
 
-# fix missing hispanicity variables for nonbinary ppts
+# # race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial/other
+# dat_demo <- dat_demo %>%
+#   mutate(race_5split = ifelse(race == 6, 5, race))
+
+# fix missing hispanicity variables for ppts
 dat_demo <- dat_demo %>%
   mutate(hispanic = case_when(
     subj %in% c("SP1030") ~ 1,  # Recode to 1=yes
@@ -158,9 +194,30 @@ dat_demo <- dat_demo %>%
     subj %in% c("SP1097", "SP1099") ~ 0,
     TRUE ~ hispanic))
 
+# fix missing AMENA variables for ppts
+dat_demo <- dat_demo %>%
+  mutate(mideastern_nafrican = case_when(
+    subj %in% c("SP1005") ~ 1,  # Recode to 1=yes
+    TRUE ~ mideastern_nafrican)) %>% 
+  mutate(mideastern_nafrican = case_when(
+    subj %in% c("SP1002", "SP1015", "SP1099", "SP1016", "SP1097") ~ 0,
+    TRUE ~ mideastern_nafrican))
+
+# consistently code race = 6 for ppts who report race/ethnicity as exclusively latine/hispanic/mexican
+dat_demo <- dat_demo %>%
+  mutate(race = case_when(
+    subj %in% c("SP1132", "SP2071", "SP2158", "SP2240") ~ 6,  
+    TRUE ~ race))
+```
+
+### education
+```{r}
 # recode "highest caregiver education" variable, taking highest of mother/father
 dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$mother_education, na.rm = TRUE)
+```
 
+### diagnosis
+```{r}
 # recode status_ppt_type to group_num
 dat_demo <- dat_demo %>%
   mutate(status_ppt_type = ifelse(status_ppt_type == 1, 0,
@@ -579,15 +636,19 @@ dat_iq <- dat_iq %>%
 # match TMB-IQ data to all behav data
 dat_behav <- merge(dat_behav, dat_iq, by = (c("subj","visit")), all.x = TRUE)
 str(dat_behav)
+
+
 ```
 
 ## optional: filter dat behav by another dataset
 ```{r}
-ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260423.csv")
-dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
-dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
+## filter for Baseline DDM analyses
+# ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260509.csv")
+# dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+# dat_behav <- filter(dat_behav, visit == "BL1")
+# dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
 
-# make sure everyone has a group variable at all timepoints
+# make sure everyone has a value for the variable "group" at all timepoints - necessary for later merging
 dat_behav <- dat_behav %>%
   group_by(subj) %>%
   mutate(
@@ -624,7 +685,7 @@ dat_behav <- dat_behav %>%
 ```{r, echo = FALSE, include = FALSE}
 # Save file ----------------
 write.csv(dat_behav,
-          file=paste0("/Users/arend103/Documents/umn_work/analyses/topx_analyses/topx_behav/data/step_behav_dat",
+          file=paste0("/Users/arend103/Documents/umn_work/analyses/topx_analyses/topx_behav/data/step_behav_dat_",
                       gsub("-", "", Sys.Date()), ".csv"), row.names = FALSE)
 
 # save copy to DDM folder
