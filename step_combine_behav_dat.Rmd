@@ -1,8 +1,11 @@
 ---
-title: "step_combine_behav_dat"
+title: "STEP combine behavioral data for DDM"
 author: "Jessica Arend"
-date: "2026-04-17"
-output: html_document
+date:  "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
 ---
 # Load, clean, combine data [hidden in output]
 ```{r, echo = FALSE, include = FALSE}
@@ -57,7 +60,7 @@ clean_rep_inst <- function(data, date) {
 ## Demo
 ```{r, echo = FALSE, include = FALSE}
 ### demographics -------
-# pull data from REDCap > "Demographics + Dx" report 
+# pull data from REDCap > "JLA Demographics + Dx" report 
 # load in and clean data
 dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20260509.csv")
 dat_demo <- clean_data(dat_demo)
@@ -182,8 +185,8 @@ dat_demo <- dat_demo %>%
   mutate(race = ifelse(is.na(race), 6, race))
 
 # # race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial/other
-# dat_demo <- dat_demo %>%
-#   mutate(race_5split = ifelse(race == 6, 5, race))
+dat_demo <- dat_demo %>%
+  mutate(race_5split = ifelse(race == 6, 5, race))
 
 # fix missing hispanicity variables for ppts
 dat_demo <- dat_demo %>%
@@ -298,9 +301,83 @@ write.csv(dat_demo, file=paste0("data/step_demographics_clean_",
 
 ## optional: filter dat behav by another dataset
 ```{r}
-# ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260423.csv")
-# dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
-# dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
+ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260509.csv")
+
+ddm_sample_subjx_pt <- ddm_sample_subjx %>% 
+  mutate(
+    group = "group") %>% 
+  mutate(
+    group = case_when(
+      str_sub(subj, 1, 3) == 'SP1' ~ 'Control',
+      str_sub(subj, 1, 3) == 'SP2' ~ 'Patient',
+      TRUE ~ group)) %>% 
+  filter(
+    group == "Patient"
+  )
+
+dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
+```
+
+## Age of Onset
+```{r}
+# read in and clean data, using redcap measure "diagnostic information"
+dat_dx_onset <- read.csv("../data/nontask_data/diagnosis/step_dx_onset_20260518.csv")
+dat_dx_onset <- clean_data(dat_dx_onset)
+dat_dx_onset <- filter(dat_dx_onset, redcap_event_name == "baseline_arm_1")
+
+# add group variable, keep only patients and variables of interest 
+dat_dx_onset <- dat_dx_onset %>% 
+  mutate(group = "group") %>% 
+  mutate(
+    group = case_when(
+      str_sub(subj, 1, 3) == 'SP1' ~ 'Control',
+      str_sub(subj, 1, 3) == 'SP2' ~ 'Patient',
+      TRUE ~ group)) %>% 
+  relocate(group, .after = subj) %>% 
+  select(subj, group, primary_dx, 
+         age_of_onset_of_psychosis, 
+         current_age) %>% 
+  filter(group == "Patient")
+
+# In ddm_sample_subjx but NOT in dat_dx_onset
+(ddm_not_in_dx <- setdiff(ddm_sample_subjx_pt$subj, dat_dx_onset$subj))
+
+# filter age of onset data using ddm subj list
+dat_dx_onset <- subset(dat_dx_onset, subj %in% ddm_sample_subjx$subj)
+
+# age of onset at psychosis
+mean(as.numeric(dat_dx_onset$age_of_onset_of_psychosis))
+sd(as.numeric(dat_dx_onset$age_of_onset_of_psychosis))
+
+# years since onset of psychosis
+dat_dx_onset <- dat_dx_onset %>% 
+  mutate(yrs_since_onset = as.numeric(current_age) - as.numeric(age_of_onset_of_psychosis))
+
+mean(as.numeric(dat_dx_onset$yrs_since_onset))
+sd(as.numeric(dat_dx_onset$yrs_since_onset))
+```
+
+## Days Between Visits
+```{r}
+# read in and clean data, using redcap report "bl1_2_delay"
+dat_visit_dates <- read.csv("../data/nontask_data/other_data/step_baseline_dates_20260518.csv")
+dat_visit_dates <- clean_data(dat_visit_dates)
+
+# keep only variables of interest
+dat_visit_dates <- dat_visit_dates %>% 
+  select(subj, b1_day1_date, b2_day1_date)
+
+# filter visit date data using ddm subj list
+dat_visit_dates <- subset(dat_visit_dates, subj %in% ddm_sample_subjx$subj)
+dat_visit_dates <- dat_visit_dates %>% 
+  mutate(
+    b1_day1_date = as.Date(b1_day1_date),
+    b2_day1_date = as.Date(b2_day1_date),
+    days_btw_visits = as.numeric(b2_day1_date - b1_day1_date)
+  )
+(median(dat_visit_dates$days_btw_visits))
+(IQR(dat_visit_dates$days_btw_visits))
 ```
 
 ## BPRS
@@ -643,10 +720,10 @@ str(dat_behav)
 ## optional: filter dat behav by another dataset
 ```{r}
 ## filter for Baseline DDM analyses
-# ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260509.csv")
-# dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
-# dat_behav <- filter(dat_behav, visit == "BL1")
-# dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
+ddm_sample_subjx <- read.csv("~/Documents/umn_work/analyses/topx_analyses/topx_ddm/data/topx_ddm_sample_subjx_20260509.csv")
+dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
+dat_behav <- filter(dat_behav, visit == "BL1")
+dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
 
 # make sure everyone has a value for the variable "group" at all timepoints - necessary for later merging
 dat_behav <- dat_behav %>%
@@ -846,17 +923,17 @@ table_bprs_ws_avg <- function(data) {
     Variable = c("BPRS Positive", "BPRS Negative", 
                  "BPRS Disorganized", "BPRS Mania", "BPRS Depression"),
     Mean = c(
-      round((mean(data$bprs_pos_ws_avg, na.rm = TRUE)/5), 2),
-      round((mean(data$bprs_neg_ws_avg, na.rm = TRUE)/3), 2),
-      round((mean(data$bprs_disorg_ws_avg, na.rm = TRUE)/6), 2),
-      round((mean(data$bprs_mania_ws_avg, na.rm = TRUE)/5), 2),
-      round((mean(data$bprs_dep_anx_ws_avg, na.rm = TRUE)/4), 2)),
+      round((mean(data$bprs_pos_ws_avg, na.rm = TRUE)), 2),
+      round((mean(data$bprs_neg_ws_avg, na.rm = TRUE)), 2),
+      round((mean(data$bprs_disorg_ws_avg, na.rm = TRUE)), 2),
+      round((mean(data$bprs_mania_ws_avg, na.rm = TRUE)), 2),
+      round((mean(data$bprs_dep_anx_ws_avg, na.rm = TRUE)), 2)),
     SD = c(
-      round((sd(data$bprs_pos_ws_avg, na.rm = TRUE)/5), 2),
-      round((sd(data$bprs_neg_ws_avg, na.rm = TRUE)/3), 2),
-      round((sd(data$bprs_disorg_ws_avg, na.rm = TRUE)/6), 2),
-      round((sd(data$bprs_mania_ws_avg, na.rm = TRUE)/5), 2),
-      round((sd(data$bprs_dep_anx_ws_avg, na.rm = TRUE)/4), 2))
+      round((sd(data$bprs_pos_ws_avg, na.rm = TRUE)), 2),
+      round((sd(data$bprs_neg_ws_avg, na.rm = TRUE)), 2),
+      round((sd(data$bprs_disorg_ws_avg, na.rm = TRUE)), 2),
+      round((sd(data$bprs_mania_ws_avg, na.rm = TRUE)), 2),
+      round((sd(data$bprs_dep_anx_ws_avg, na.rm = TRUE)), 2))
     )
   summary
 }
@@ -915,10 +992,10 @@ table_sanssaps <- function(data) {
 table_ct_pct_2split("gender")
 
 # 1 = cis man, 2 = cis woman, 3 = trans/enby
-table_ct_pct_2split("gender_3split")
+table_ct_pct_2split("gender_4split")
 
 # 1=cis man, 2=cis woman, 3=trans man, 4=trans woman, 5 = enby
-table_ct_pct_2split("gender_5split")
+table_ct_pct_2split("gender_6split")
 
 # lgbtq
 table_ct_pct_2split("lgbtq")
@@ -984,15 +1061,15 @@ table_ct_pct_2split("dx_5split")
 table_ct_pct_2split("dx_6split")
 ```
 
-### BPRS total
+### BPRS total score
 ```{r}
 table_m_sd_2split("bprs_total")
 ```
 
 ### BPRS - General Factor Average
 ```{r}
-#table_bprs(dat_behav_pt)
-table_bprs_ws_avg(dat_behav_pt)
+table_bprs(dat_behav_pt)
+table_bprs(dat_behav_ctl)
 
 # table_bprs(dat_behav)
 
@@ -1015,6 +1092,10 @@ dat_behav %>%
 
 ###BPRS W-S Avg
 ```{r}
+table_bprs_ws_avg(dat_behav_pt)
+table_bprs_ws_avg(dat_behav_ctl)
+
+
 dat_behav %>%
   group_by(group, visit) %>%
   summarise(
@@ -1035,7 +1116,7 @@ dat_behav %>%
 ### BPRS W-S Total
 ```{r}
 #table_bprs(dat_behav_pt)
-#table_bprs_ws_tot(dat_behav_pt)
+table_bprs_ws_tot(dat_behav_pt)
 
 dat_behav %>%
   group_by(group, visit) %>%
@@ -1078,15 +1159,14 @@ table_m_sd_2split("duration_of_psychosis")
 ```
 
 ## Group differences
+### demographics
 ```{r}
 ### demo group differences --------------
 # gender - report fisher
 chisq.test(dat_behav$gender, dat_behav$group)
 fisher.test(dat_behav$gender, dat_behav$group)
-chisq.test(dat_behav$gender_3split, dat_behav$group)
-fisher.test(dat_behav$gender_3split, dat_behav$group)
-
-
+chisq.test(dat_behav$gender_4split, dat_behav$group)
+fisher.test(dat_behav$gender_4split, dat_behav$group)
 
 # age
 # welch's two-sample t-test - report this
@@ -1121,36 +1201,57 @@ shapiro.test(dat_behav$iq)
 
 t.test(iq ~ group_num, data = dat_behav) #welch's
 wilcox.test(iq ~ group_num, data = dat_behav)
+```
 
+### BPRS sums
+```{r}
 # BPRS - total
-leveneTest(dat_behav$bprs_total, dat_behav$group_num, data = dat_behav)
-t.test(bprs_total ~ group_num, data = dat_behav)
+# leveneTest(dat_behav$bprs_total, dat_behav$group_num, data = dat_behav)
+# t.test(bprs_total ~ group_num, data = dat_behav)
 wilcox.test(bprs_total ~ group_num, data = dat_behav)
 
 # BPRS - positive
-leveneTest(dat_behav$bprs_pos_ws, dat_behav$group_num, data = dat_behav)
-t.test(bprs_pos_ws ~ group_num, data = dat_behav)
-wilcox.test(bprs_pos_ws ~ group_num, data = dat_behav)
+wilcox.test(bprs_pos_ws_tot ~ group_num, data = dat_behav)
 
 # BPRS - negative
-leveneTest(dat_behav$bprs_neg_ws, dat_behav$group_num, data = dat_behav)
-t.test(bprs_neg_ws ~ group_num, data = dat_behav)
-wilcox.test(bprs_neg_ws ~ group_num, data = dat_behav)
+wilcox.test(bprs_neg_ws_tot ~ group_num, data = dat_behav)
 
-# BPRS - disorg
-leveneTest(dat_behav$bprs_disorg_ws, dat_behav$group_num, data = dat_behav)
-t.test(bprs_disorg_ws ~ group_num, data = dat_behav)
-wilcox.test(bprs_disorg_ws ~ group_num, data = dat_behav) 
+# BPRS - disorganized
+wilcox.test(bprs_disorg_ws_tot ~ group_num, data = dat_behav)
 
 # BPRS - mania
-leveneTest(dat_behav$bprs_mania_ws, dat_behav$group_num, data = dat_behav)
-t.test(bprs_mania_ws ~ group_num, data = dat_behav)
-wilcox.test(bprs_mania_ws ~ group_num, data = dat_behav) 
+wilcox.test(bprs_mania_ws_tot ~ group_num, data = dat_behav)
 
 # BPRS - depr/anx
-leveneTest(dat_behav$bprs_dep_anx_ws, dat_behav$group_num, data = dat_behav)
-t.test(bprs_dep_anx_ws ~ group_num, data = dat_behav)
-wilcox.test(bprs_dep_anx_ws ~ group_num, data = dat_behav) 
+wilcox.test(bprs_dep_anx_ws_tot ~ group_num, data = dat_behav)
+```
+
+### BPRS WS avg
+```{r}
+# BPRS - positive
+# leveneTest(dat_behav$bprs_pos_ws_avg, dat_behav$group_num, data = dat_behav)
+# t.test(bprs_pos_ws_avg ~ group_num, data = dat_behav)
+wilcox.test(bprs_pos_ws_avg ~ group_num, data = dat_behav)
+
+# BPRS - negative
+# leveneTest(dat_behav$bprs_neg_ws_avg, dat_behav$group_num, data = dat_behav)
+# t.test(bprs_neg_ws_avg ~ group_num, data = dat_behav)
+wilcox.test(bprs_neg_ws_avg ~ group_num, data = dat_behav)
+
+# BPRS - disorg
+# leveneTest(dat_behav$bprs_disorg_ws_avg, dat_behav$group_num, data = dat_behav)
+# t.test(bprs_disorg_ws_avg ~ group_num, data = dat_behav)
+wilcox.test(bprs_disorg_ws_avg ~ group_num, data = dat_behav) 
+
+# BPRS - mania
+# leveneTest(dat_behav$bprs_mania_ws_avg, dat_behav$group_num, data = dat_behav)
+# t.test(bprs_mania_ws_avg ~ group_num, data = dat_behav)
+wilcox.test(bprs_mania_ws_avg ~ group_num, data = dat_behav) 
+
+# BPRS - depr/anx
+# leveneTest(dat_behav$bprs_dep_anx_ws_avg, dat_behav$group_num, data = dat_behav)
+# t.test(bprs_dep_anx_ws_avg ~ group_num, data = dat_behav)
+wilcox.test(bprs_dep_anx_ws_avg ~ group_num, data = dat_behav) 
 ```
 
 
