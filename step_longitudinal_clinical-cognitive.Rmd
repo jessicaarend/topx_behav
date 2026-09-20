@@ -19,10 +19,8 @@ pacman::p_load(stats, stringr, dplyr, tidyr, ggplot2, ggpattern, lme4, emmeans, 
 ```{r}
 # load in data
 dat_topx <- read.csv("data/aggregate_topx_20260414.csv")
-
-# set the levels for variable "visit"
-dat_topx$visit <- factor(dat_topx$visit,
-                         levels = c("BL1", "BL2", "6M", "7M", "12M"))
+# remove duplicate 6M visit for SP2150
+dat_topx <- filter(dat_topx, !(subj == "SP2150" & visit == "6M" & date == "20231130"))
 
 # how many ppts total? (n = 201)
 length(unique(dat_topx$subj))
@@ -34,18 +32,28 @@ dat_topx <- dat_topx %>%
       group == "Control" ~ 0,
       group == "Patient" ~ 1))
 
-# keep only ppts with BL1, BL2, and 6M (n = 105)
+# create project 3 dataset (n = 105)
 proj3_visits <- c("BL1", "BL2", "6M")
 dat_topx_proj3 <- dat_topx %>% 
   group_by(subj) %>% 
+  # remove 7M, 12M
+  filter(visit %in% c("BL1", "BL2", "6M"))  %>% 
+  # only keep ppl with all three visits: BL1, BL2, 6M
   filter(all(proj3_visits %in% visit)) %>% 
-  ungroup()
+  ungroup() 
 length(unique(dat_topx_proj3$subj))
-# remove BL2
-dat_topx_proj3 <- dat_topx_proj3 %>% 
+table(dat_topx_proj3$visit)
+# set factor to order visits
+dat_topx_proj3$visit <- factor(dat_topx_proj3$visit,
+                         levels = c("BL1", "BL2", "6M"))
+
+# create project 3 dataset without BL2
+dat_topx_proj3_no_bl2 <- dat_topx_proj3 %>% 
   filter(visit %in% c("BL1", "6M"))
+dat_topx_proj3_no_bl2$visit <- factor(dat_topx_proj3_no_bl2$visit,
+                         levels = c("BL1","6M"))
 # set this to dataframe going forward, if using for analyses
-dat_topx <- dat_topx_proj3
+# dat_topx <- dat_topx_proj3
 
 # keep only ppts with all visits, BL1 through 12M (n = 32)
 proj4_visits <- c("BL1", "BL2", "6M", "7M", "12M")
@@ -54,6 +62,9 @@ dat_topx_proj4 <- dat_topx %>%
   filter(all(proj4_visits %in% visit)) %>% 
   ungroup()
 length(unique(dat_topx_proj4$subj))
+# set the levels for variable "visit"
+dat_topx_proj4$visit <- factor(dat_topx_proj4$visit,
+                         levels = c("BL1", "BL2", "6M", "7M", "12M"))
 ```
 
 ## Demographics
@@ -513,6 +524,9 @@ wilcox.test(bprs_dep_anx_ws ~ group_num, data = dat_bprs_6m)
 ## TOPX
 ### Error
 ```{r}
+# set this to dataframe going forward, if using for analyses
+dat_topx <- dat_topx_proj3
+
 # run the LMER, report as an ANOVA
 mod_err <- lmer(error ~ group * trial_type * visit + (1|subj), data = dat_topx)
 anova_err <- anova(mod_err, type = 3)
@@ -571,7 +585,7 @@ plot_err_bl1 <- ggplot(dat_topx_bl1,
        color = "Group") +
   coord_cartesian(ylim = c(0.05, .4)) +
   scale_color_manual(values=c("#2C737F", "#AA8829"),
-                     labels=c("Ctl", "EP        ")) + 
+                     labels=c("Ctl", "EP")) + 
 theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
@@ -595,9 +609,9 @@ plot_err_bl2 <- ggplot(dat_topx_bl2,
        y = "Error Rate", 
        x = "Trial Type", 
        color = "Group") +
-  coord_cartesian(ylim = c(0.05, .4)) +
+ coord_cartesian(ylim = c(0.05, .4)) +
   scale_color_manual(values=c("#2C737F", "#AA8829"),
-                     labels=c("Ctl", "EP        ")) + 
+                     labels=c("Ctl", "EP")) + 
 theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
@@ -623,7 +637,7 @@ plot_err_6m <- ggplot(dat_topx_6m,
        color = "Group") +
   coord_cartesian(ylim = c(0.05, .4)) +
   scale_color_manual(values=c("#2C737F", "#AA8829"),
-                     labels=c("Ctl", "EP        ")) + 
+                     labels=c("Ctl", "EP")) + 
 theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
@@ -705,12 +719,12 @@ plot_err_bl1_aff <- ggplot(dat_topx_bl1,
                aes(color = dx_affect), linewidth = 1, position = position_dodge(0.2)) + 
   stat_summary(fun="mean", geom="point", aes(color = dx_affect), size = 2, position = position_dodge(0.2)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = dx_affect), 
-               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+               width = 0.4, size = 1, position = position_dodge(0.2)) + 
   labs(title = "BL1 Error Rates", 
        y = "Error Rate", 
        x = "Trial Type", 
        color = "Group") +
-  coord_cartesian(ylim = c(0.05, .4)) +
+  coord_cartesian(ylim = c(0.05, .45)) +
   scale_color_manual(values=c("#2C737F", "#AA8829", "#C44E52"),
                      labels=c("Ctl", "Non-Aff", "Aff")) +
 theme(panel.grid.major = element_blank(), 
@@ -731,12 +745,12 @@ plot_err_bl2_aff <- ggplot(dat_topx_bl2,
                aes(color = dx_affect), linewidth = 1, position = position_dodge(0.2)) + 
   stat_summary(fun="mean", geom="point", aes(color = dx_affect), size = 2, position = position_dodge(0.2)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = dx_affect), 
-               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+               width = 0.4, size = 1, position = position_dodge(0.2)) + 
   labs(title = "BL2 Error Rates", 
        y = "Error Rate", 
        x = "Trial Type", 
        color = "Group") +
-  coord_cartesian(ylim = c(0.05, .4)) +
+  coord_cartesian(ylim = c(0.05, .45)) +
   scale_color_manual(values=c("#2C737F", "#AA8829", "#C44E52"),
                      labels=c("Ctl", "Non-Aff", "Aff")) +
 theme(panel.grid.major = element_blank(), 
@@ -757,12 +771,12 @@ plot_err_6m_aff <- ggplot(dat_topx_6m,
                aes(color = dx_affect), linewidth = 1, position = position_dodge(0.2)) + 
   stat_summary(fun="mean", geom="point", aes(color = dx_affect), size = 2, position = position_dodge(0.2)) + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(color = dx_affect), 
-               width = 0.2, size = 1, position = position_dodge(0.2)) + 
+               width = 0.4, size = 1, position = position_dodge(0.2)) + 
   labs(title = "6M Error Rates", 
        y = "Error Rate", 
        x = "Trial Type", 
        color = "Group") +
-  coord_cartesian(ylim = c(0.05, .4)) +
+  coord_cartesian(ylim = c(0.05, .45)) +
   scale_color_manual(values=c("#2C737F", "#AA8829", "#C44E52"),
                      labels=c("Ctl", "Non-Aff", "Aff")) +
 theme(panel.grid.major = element_blank(), 
