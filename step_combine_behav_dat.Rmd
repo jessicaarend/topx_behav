@@ -62,11 +62,12 @@ clean_rep_inst <- function(data, date) {
 ### demographics -------
 # pull data from REDCap > "JLA Demographics + Dx" report 
 # load in and clean data
-dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20260509.csv")
+# dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20260509.csv")
+dat_demo <- read.csv("../data/nontask_data/demographics/step_demo_dx_20260929.csv")
 dat_demo <- clean_data(dat_demo)
 
 # remove unnecessary rows
-dat_demo <- subset(dat_demo, select = -c(redcap_event_name, redcap_repeat_instrument, redcap_repeat_instance, clinical_status))
+dat_demo <- subset(dat_demo, select = -c(redcap_event_name, redcap_repeat_instrument, redcap_repeat_instance))
 
 # remove STEP Phase 2 direct enrollees
 dat_demo <- dat_demo %>% 
@@ -186,7 +187,7 @@ dat_demo <- dat_demo %>%
 
 # # race: 0=white, 1=black/african am, 2=indigenous am/alaska native, 3=asian/asian am, 4=native hawaiian/pacific islander, 5=multiracial/other
 dat_demo <- dat_demo %>%
-  mutate(race_5split = ifelse(race == 6, 5, race))
+  mutate(race_5split = ifelse(race == 6, 5, race), .after = race_other) 
 
 # fix missing hispanicity variables for ppts
 dat_demo <- dat_demo %>%
@@ -213,10 +214,100 @@ dat_demo <- dat_demo %>%
     TRUE ~ race))
 ```
 
+### language
+```{r}
+# english_primary
+# 1 = english is primary language; 0 = english is not primary language
+table(dat_demo$english_primary)
+
+# english_native
+# 1 = english is native language; 0 = english is not native language
+table(dat_demo$english_native)
+
+# english_age
+# if english is not primary/native, age at which they learned english
+table(dat_demo$english_age)
+
+# bilingual
+# 1 = bilingual or multilingual; 0 = not multilingual
+table(dat_demo$bilingual)
+
+# bilingual_other
+# what languages do they speak?
+```
+
+### marital status
+```{r}
+# marital status
+# 0 = Never married; 1 = Married; 2 = Domestic partnership; 3 = Separated (from spouse); 4 = Divorced; 5 = Widowed; 6 = Other
+table(dat_demo$marital_status)
+table(dat_demo$marital_status_other) # all marked "other" are noted as engaged
+```
+
+
+### living situation
+```{r}
+# create true/false matrix for living situation types
+living_sit_cols <- paste0("living_situation___", 0:10)
+living_sit_matrix <- as.matrix(dat_demo[, living_sit_cols]) == 1
+living_sit_matrix[is.na(living_sit_matrix)] <- FALSE
+
+# convert true/false to a string of numbers, by returning position of "true" values
+dat_demo <- dat_demo %>%
+  mutate(living_situation = apply(living_sit_matrix, 1, function(x) paste(which(x), collapse = ",")), 
+         .after = marital_status_other)
+dat_demo$living_situation[dat_demo$living_situation == ""] <- NA
+
+# coding for living status:
+# 1 = Alone
+# 2 = With parents
+# 3 = With partner/spouse
+# 4 = With partner/spouse and children (or children only)
+# 5 = With siblings or other relatives
+# 6 = With friends/roommates
+# 7 = In supported housing/group home
+# 8 = In a residential treatment facility
+# 9 = In foster care
+# 10 = In homeless shelter
+# 11 = In temporary housing (e.g., couch surfing)
+```
+
 ### education
 ```{r}
 # recode "highest caregiver education" variable, taking highest of mother/father
-dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$mother_education, na.rm = TRUE)
+dat_demo <- dat_demo %>%
+  mutate(hi_caregiver_education = pmax(father_education, mother_education, na.rm = TRUE)) %>%
+  relocate(hi_caregiver_education, .after = father_education)
+```
+
+### employment
+```{r}
+# coding for employ_status:
+# 1, Full-time (40 hours/week or more)
+# 2, Half-time (approximately 20 hours/week)
+# 3, Quarter time (approximately 10 hours/week)
+# 4, Temporarily laid off/furloughed, sick/medical leave or parental leave
+# 5, Unemployed, looking for work
+# 6, Unemployed, not looking for work (e.g., supported by family)
+# 7, On disability benefits (permanently or temporarily)
+# 8, Student
+# 9, Volunteer
+# 10, Homemaker
+# 11, Retired
+# 12, Other
+table(dat_demo$subj_employ_status)
+
+# coding for student_status
+# 0, Full-time
+# 1, Part-time
+# 2, Part-time, with full-time work
+# 3, Part-time, with part-time work
+table(dat_demo$subj_student_status)
+
+# coding for volunteer_status
+# 0, Full-time
+# 1, Part-time
+table(dat_demo$subj_volunteer_status)
 ```
 
 ### diagnosis
@@ -225,12 +316,15 @@ dat_demo$hi_caregiver_education <- pmax(dat_demo$father_education, dat_demo$moth
 dat_demo <- dat_demo %>%
   mutate(status_ppt_type = ifelse(status_ppt_type == 1, 0,
                            ifelse(status_ppt_type == 2, 1, NA))) %>%
-  rename(group_num = status_ppt_type)
+  rename(group_num = status_ppt_type) %>%
+  relocate(group_num, .after = hi_caregiver_education)
 
 # create variable for group name
-dat_demo$group <- ifelse(dat_demo$group_num == 0, "Control",
+dat_demo <- dat_demo %>%
+  mutate(group = ifelse(dat_demo$group_num == 0, "Control",
                      ifelse(dat_demo$group_num == 1, 
-                            "Patient", NA))
+                            "Patient", NA))) %>%
+  relocate(group, .after = hi_caregiver_education)
 
 # if controls' diagnosis is NA, recode dx=0
 dat_demo$primary_dx[dat_demo$group_num == 0 &
@@ -281,11 +375,89 @@ dat_demo$dx_6split <- as.numeric(
                 "5" = "3",
                 "6" = "4",
                 "7" = "5"))
+```
+
+### age of onset
+```{r}
+# read in and clean data, using redcap measure "diagnostic information"
+dat_dx_onset <- read.csv("../data/nontask_data/diagnosis/step_dx_onset_20260518.csv")
+dat_dx_onset <- clean_data(dat_dx_onset)
+dat_dx_onset <- filter(dat_dx_onset, redcap_event_name == "baseline_arm_1")
+
+# add group variable, keep only patients and variables of interest 
+dat_dx_onset <- dat_dx_onset %>% 
+  mutate(group = "group") %>% 
+  mutate(
+    group = case_when(
+      str_sub(subj, 1, 3) == 'SP1' ~ 'Control',
+      str_sub(subj, 1, 3) == 'SP2' ~ 'Patient',
+      TRUE ~ group)) %>% 
+  relocate(group, .after = subj) %>% 
+  select(subj, group, primary_dx, 
+         age_of_onset_of_psychosis, 
+         current_age) %>% 
+  filter(group == "Patient")
+
+# # In ddm_sample_subjx but NOT in dat_dx_onset
+# (ddm_not_in_dx <- setdiff(ddm_sample_subjx_pt$subj, dat_dx_onset$subj))
+
+# # filter age of onset data using ddm subj list
+# dat_dx_onset <- subset(dat_dx_onset, subj %in% ddm_sample_subjx$subj)
+
+# average age of onset of psychosis
+mean(as.numeric(dat_dx_onset$age_of_onset_of_psychosis), na.rm = TRUE)
+sd(as.numeric(dat_dx_onset$age_of_onset_of_psychosis), na.rm = TRUE)
+
+# create var for years since onset of psychosis
+dat_dx_onset <- dat_dx_onset %>% 
+  mutate(yrs_since_onset = as.numeric(current_age) - as.numeric(age_of_onset_of_psychosis))
+
+# average years since onset of psychosis
+mean(as.numeric(dat_dx_onset$yrs_since_onset), na.rm = TRUE)
+sd(as.numeric(dat_dx_onset$yrs_since_onset), na.rm = TRUE)
+
+# add age of onset/years since onset to dat_demo
+dat_demo <- dat_demo %>%
+  left_join(
+    dat_dx_onset %>% select(subj, age_of_onset_of_psychosis, yrs_since_onset),
+    by = "subj"
+  )
+
+# rearrange columns
+dat_demo <- dat_demo %>% 
+  relocate(c(clinical_status, b2_status, fu6_status), .after = yrs_since_onset) %>%
+  relocate(duration_of_psychosis, .after = dx_6split)
+```
+
+### filter out excluded ppts
+```{r}
+# Status of Visit Completion
+# 4 = completed, 5 = excluded, 6 = Withdrew, 7 = Not Applicable, 8 = On Study Hold/Wait to Contact
+
+
+# filter out patients with no dx information, means they were excluded or withdrew
+# filter out patients who did not meet criteria for psychosis diagnosis
+# explicitly filter out ppts who were excluded or "on hold" due to questionable eligibility
+# first look at who is excluded
+dat_demo_excl <- dat_demo %>%
+  filter(is.na(primary_dx) |
+         (group_num == 1 & primary_dx == 0) |
+         clinical_status %in% c("5", "8"))
+# then run the exclusion
+dat_demo <- dat_demo %>%
+  filter(!is.na(primary_dx)) %>%
+  filter(!(group_num == 1 & primary_dx == 0)) %>%
+  filter(!(clinical_status == "5" | clinical_status == "8"))
 
 # filter out if BL2 not complete
-# dat_demo <- subset(dat_demo, b2_status == "4"| b2_status == "6") # completed/withdrew at baseline 2
+# dat_demo <- subset(dat_demo, b2_status == "4"& b2_status == "6") # completed and/or withdrew at baseline 2
+# 
+# # filter out if 6M not complete
 # dat_demo <- subset(dat_demo, fu6_status == "4") # completed 6mo
+```
 
+###save cleaned demo dat
+```{r}
 # create variable for visit
 dat_demo <- dat_demo %>% 
   mutate(visit = "BL1",
@@ -317,45 +489,6 @@ write.csv(dat_demo, file=paste0("data/step_demographics_clean_",
 # 
 # dat_behav <- subset(dat_behav, subj %in% ddm_sample_subjx$subj)
 # dat_demo <- subset(dat_demo, subj %in% ddm_sample_subjx$subj)
-```
-
-## Age of Onset
-```{r}
-# read in and clean data, using redcap measure "diagnostic information"
-dat_dx_onset <- read.csv("../data/nontask_data/diagnosis/step_dx_onset_20260518.csv")
-dat_dx_onset <- clean_data(dat_dx_onset)
-dat_dx_onset <- filter(dat_dx_onset, redcap_event_name == "baseline_arm_1")
-
-# add group variable, keep only patients and variables of interest 
-dat_dx_onset <- dat_dx_onset %>% 
-  mutate(group = "group") %>% 
-  mutate(
-    group = case_when(
-      str_sub(subj, 1, 3) == 'SP1' ~ 'Control',
-      str_sub(subj, 1, 3) == 'SP2' ~ 'Patient',
-      TRUE ~ group)) %>% 
-  relocate(group, .after = subj) %>% 
-  select(subj, group, primary_dx, 
-         age_of_onset_of_psychosis, 
-         current_age) %>% 
-  filter(group == "Patient")
-
-# # In ddm_sample_subjx but NOT in dat_dx_onset
-# (ddm_not_in_dx <- setdiff(ddm_sample_subjx_pt$subj, dat_dx_onset$subj))
-
-# # filter age of onset data using ddm subj list
-# dat_dx_onset <- subset(dat_dx_onset, subj %in% ddm_sample_subjx$subj)
-
-# age of onset at psychosis
-mean(as.numeric(dat_dx_onset$age_of_onset_of_psychosis))
-sd(as.numeric(dat_dx_onset$age_of_onset_of_psychosis))
-
-# years since onset of psychosis
-dat_dx_onset <- dat_dx_onset %>% 
-  mutate(yrs_since_onset = as.numeric(current_age) - as.numeric(age_of_onset_of_psychosis))
-
-mean(as.numeric(dat_dx_onset$yrs_since_onset))
-sd(as.numeric(dat_dx_onset$yrs_since_onset))
 ```
 
 ## Days Between Visits
@@ -680,13 +813,85 @@ write.csv(dat_gf, file=paste0("data/step_gf_clean_",
 dat_behav <- merge(dat_behav, dat_gf, by = (c("subj", "visit")), all.x = TRUE)
 ```
 
+## WHODAS
+```{r}
+# pull selected instrument > WHODAS BL and 6M
+dat_whodas <- read.csv("../data/nontask_data/functioning/step_whodas_bl-6m_20260929.csv")
+dat_whodas <- clean_data(dat_whodas)
+# remove repeat instances
+dat_whodas <- dat_whodas %>%
+  filter(whodas_date != "") %>%
+  rename(visit = redcap_event_name) %>%
+  mutate(visit = dplyr::recode(visit, 
+         "baseline_arm_1" = "BL1",
+         "6mo_followup_arm_1" = "6M"))
+dat_whodas <- dat_whodas %>%
+  mutate(whodas_date = as.Date(whodas_date)) %>%
+  group_by(subj, visit) %>%
+  slice_max(whodas_date, n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+# remove unneeded variables
+dat_whodas <- dat_whodas %>%
+  select(-c(redcap_repeat_instrument, redcap_repeat_instance, redcap_survey_identifier, whodas_20_timestamp, whodas_20_complete, whodas_notes))
+
+dat_whodas <- dat_whodas %>% 
+  mutate(across(matches("^whodas\\d+"), as.numeric)) %>% 
+  mutate(whodas_total = whodas01_standing +
+           whodas02_household + whodas03_learning +
+           whodas04_community + whodas05_affected +
+           whodas06_concentrating + whodas07_walking +
+           whodas08_washing + whodas09_dressed +
+           whodas10_dealing_ppl + whodas11_friendship +
+           whodas12_work) %>%
+  # calculate scores for cognition ("understanding and communicating"), mobility ("getting around"), self-care, interpersonal/social functioning ("getting along"), life activities, and participation in society
+  mutate(whodas_cog = whodas03_learning +
+           whodas06_concentrating) %>%
+  mutate(whodas_mob = whodas01_standing + whodas07_walking) %>%
+  mutate(whodas_self = whodas08_washing + whodas09_dressed) %>%
+  mutate(whodas_soc = whodas10_dealing_ppl + whodas11_friendship) %>%
+  mutate(whodas_life = whodas02_household + whodas12_work) %>%
+  mutate(whodas_partic = whodas04_community + whodas05_affected)
+
+# notes on interpretation
+# The WHODAS 2.0 is not a diagnostic or clinical assessment tool. There are no ‘cut-offs’ or other indicators to guide interpretation of the overall functional impairment score.
+# Remember, the WHODAS 2.0 is designed to show areas of daily life impacted by health conditions. A person may therefore have high scores on one domain, but low scores on all the other domains, resulting in a lower total overall.
+# Instead of focusing on the total score you may find it more useful to look at the areas of functioning (e.g., individual items) where scores are the highest.
+
+# match WHODAS data to all behav data
+dat_behav <- merge(dat_behav, dat_whodas, by = c("subj", "visit"), all.x = TRUE)
+```
+
+## InDI Discrimination
+```{r}
+# pull data from REDCap > "IDI" report 
+dat_idi <- read.csv("../data/nontask_data/other_data/step_indi_bl-6m_20260929.csv")
+# rename and reformat subject column and clean data
+dat_idi <- clean_data(dat_idi)
+# remove repeat instances
+dat_idi <- dat_idi %>%
+  filter(idi_date != "") %>%
+  rename(visit = redcap_event_name) %>%
+  mutate(visit = dplyr::recode(visit, 
+         "baseline_arm_1" = "BL1",
+         "6mo_followup_arm_1" = "6M"))
+dat_idi<- dat_idi %>%
+  mutate(idi_date = as.Date(idi_date)) %>%
+  group_by(subj, visit) %>%
+  slice_max(idi_date, n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+# remove or rename unnecessary rows
+dat_idi <- subset(dat_idi, select = -c(redcap_repeat_instrument, redcap_repeat_instance, idi_intersectional_discrimination_index_complete))
+```
+
 ## IQ
 ```{r, echo = FALSE, include = FALSE}
 ### TMB IQ  ------------
 # Make sure to pull REDCap report "Test My Brain", to include tmb baseline date 
 dat_iq <- read.csv("../data/nontask_data/other_data/step_iq_20250914.csv")
 dat_iq <- clean_data(dat_iq)
-dat_iq <- clean_rep_inst(dat_iq, "tmb_baseline_date")
+#dat_iq <- clean_rep_inst(dat_iq, "tmb_baseline_date")
 
 # create dataframe with only target variables
 dat_iq <- dat_iq %>%
@@ -783,12 +988,12 @@ dat_tmb <- dat_tmb %>%
   relocate(c(visit, start_time), .after = subj)  %>%
   filter(visit == 1 | visit == 2) %>% # keep only BL and 6M
   mutate(visit = 
-           dplyr::recode(visit, '1' = "BL", '2' = "6M"))
+           dplyr::recode(visit, '1' = "BL1", '2' = "6M"))
 
 # remove unusable first attempts for SP2199 and SP2263 at baseline, so we can rename and use their second attempts
 dat_tmb <- dat_tmb %>%
-  filter(!(subj == "SP2199" & visit == "BL")) %>%
-  filter(!(subj == "SP2263" & visit == "BL"))
+  filter(!(subj == "SP2199" & visit == "BL1")) %>%
+  filter(!(subj == "SP2263" & visit == "BL1"))
 
 # fix ID errors
 dat_tmb <- dat_tmb %>%
@@ -816,13 +1021,13 @@ dat_tmb <- dat_tmb %>%
 
 # drop repeats/duplicate administrations
 dat_tmb <- dat_tmb %>%
-  filter(!(subj == "SP1079" & visit == "BL" &
+  filter(!(subj == "SP1079" & visit == "BL1" &
            startsWith(as.character(start_time), "2022-12-07"))) %>%
           # keep later instance
   filter(!(subj == "SP2066" & visit == "6M" &
            startsWith(as.character(start_time), "2023-07-13"))) %>%
             # I'm not sure whose data this is from 7/13 - not SP2066? 
-  filter(!(subj == "SP2150" & visit == "BL" &
+  filter(!(subj == "SP2150" & visit == "BL1" &
              as.Date(start_time) == as.Date("2023-05-17") &
              hour(start_time) == 16)) %>%
               # keep first attempt, since scores are slightly better and more               likely representative of their true ability
