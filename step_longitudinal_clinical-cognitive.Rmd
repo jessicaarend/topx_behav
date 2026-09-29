@@ -15,6 +15,23 @@ rm(list=ls())
 pacman::p_load(stats, stringr, dplyr, tidyr, ggplot2, ggpattern, lme4, emmeans, lmerTest, Matrix, pbkrtest, psych, car, performance, parameters, data.table, tibble, Hmisc, corrplot)
 ```
 
+## Demographics
+```{r, echo = FALSE, include = FALSE}
+### demographics -------
+# pull data from REDCap > "JLA Demographics + Dx" report 
+# load in and clean data
+dat_demo <- read.csv("data/step_demographics_clean_20260414.csv")
+colnames(dat_demo)[1] <- "subj"
+
+# recode race NAs to "other"
+dat_demo <- dat_demo %>%
+  mutate(race_5split = ifelse(race == 6, 5, race),
+         .after = "race")
+
+dat_demo <- dat_demo %>% 
+  mutate(visit = "BL1", .after = subj)
+```
+
 ## TOPX
 ```{r}
 # load in data
@@ -65,27 +82,23 @@ length(unique(dat_topx_proj4$subj))
 # set the levels for variable "visit"
 dat_topx_proj4$visit <- factor(dat_topx_proj4$visit,
                          levels = c("BL1", "BL2", "6M", "7M", "12M"))
-```
-
-## Demographics
-```{r, echo = FALSE, include = FALSE}
-### demographics -------
-# pull data from REDCap > "JLA Demographics + Dx" report 
-# load in and clean data
-dat_demo <- read.csv("data/step_demographics_clean_20260414.csv")
-colnames(dat_demo)[1] <- "subj"
-
-# recode race NAs to "other"
-dat_demo <- dat_demo %>%
-  mutate(race_5split = ifelse(race == 6, 5, race),
-         .after = "race")
-
-dat_demo <- dat_demo %>% 
-  mutate(visit = "BL1", .after = subj)
 
 # subset demographics data by topx data
 dat_demo <- dat_demo %>%
   filter(subj %in% dat_topx$subj)
+```
+
+## Test My Brain DNT
+```{r}
+dat_tmb <- read.csv("../data/nontask_data/other_data/step_tmb_20260928.csv")
+
+# subset tmb data by topx data
+dat_tmb <- dat_tmb %>%
+  filter(subj %in% dat_topx$subj) %>%
+  mutate(
+    group_num = case_when(
+      group == "Control" ~ 0,
+      group == "Patient" ~ 1))
 ```
 
 ## Clinical Symptoms
@@ -525,7 +538,7 @@ wilcox.test(bprs_dep_anx_ws ~ group_num, data = dat_bprs_6m)
 ### Error
 ```{r}
 # set this to dataframe going forward, if using for analyses
-dat_topx <- dat_topx_proj3
+dat_topx <- dat_topx_proj3_no_bl2
 
 # run the LMER, report as an ANOVA
 mod_err <- lmer(error ~ group * trial_type * visit + (1|subj), data = dat_topx)
@@ -650,7 +663,7 @@ theme(panel.grid.major = element_blank(),
 plot_err_6m
 ```
 
-### Error Aff/NonAff
+### Error Aff/NonAff Linegraph combined
 ```{r}
 dat_topx <- dat_topx %>%
   left_join(
@@ -705,6 +718,74 @@ plot_err_aff <- ggplot(dat_topx,
         plot.title = element_text(face = "bold", size = 22))
 plot_err_aff
 ```
+
+### Error Aff/Nonaff Barplot
+```{r}
+plot_err_aff_bar <- ggplot(
+  dat_topx,
+  aes(
+    x = trial_type,
+    y = error,
+    fill = dx_affect,
+    pattern = visit
+  )
+) +
+  stat_summary(
+    fun = "mean",
+    geom = "bar_pattern",
+    position = position_dodge(width = 0.9),
+    color = "black",
+    pattern_fill = "black",
+    pattern_color = "black",
+    pattern_density = 0.1,
+    pattern_spacing = 0.02
+  ) +
+  stat_summary(
+    fun.data = mean_se,
+    geom = "errorbar",
+    position = position_dodge(width = 0.9),
+    width = 0.3
+  ) +
+  coord_cartesian(ylim = c(0.05, .45)) +
+  labs(
+    title = "TOPX Error Rates",
+    y = "TOPX Error Rate",
+    x = "Trial Type",
+    fill = "Group",
+    pattern = "Visit"
+  ) +
+  scale_fill_manual(
+    values = c("Ctl" = "#2C737F", "Non-Aff" = "#AA8829", "Aff" = "#C44E52"),
+    labels = c("Ctl", "Non-Aff", "Aff")
+  ) +
+  scale_pattern_manual(
+    values = c("BL1" = "none", "6M" = "stripe"),
+    labels = c("Visit 1", "6-Month")
+  ) +
+  guides(
+    fill = guide_legend(override.aes = list(pattern = "none")),
+    pattern = guide_legend()
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(face = "bold", size = 12),
+    axis.title = element_text(face = "bold", size = 16),
+    legend.text = element_text(face = "bold", size = 12),
+    legend.title = element_text(face = "bold", size = 16),
+    plot.title = element_text(face = "bold", size = 22)
+  )
+plot_err_aff_bar
+
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"),
+              "_topx_err_affect_barplot.png"),
+       plot_err_aff_bar, width = 6, height = 4)
+```
+
 
 ### Error Aff/Nonaff by Visit
 ```{r}
@@ -1291,6 +1372,89 @@ plot_bprs_bar3
 ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), 
               "_BPRS_affect_longitudinal.png"),
          plot_bprs_bar3, width = 6, height = 4)
+
+# Ensure separate group and visit columns exist (split from affect_visit if needed)
+dat_bprs_long <- dat_bprs_long %>%
+  mutate(
+    group = case_when(
+      grepl("^Ctl", affect_visit) ~ "Ctl",
+      grepl("^Non-Aff", affect_visit) ~ "Non-Aff",
+      grepl("^Aff", affect_visit) ~ "Aff"
+    ),
+    visit = case_when(
+      grepl("BL1$", affect_visit) ~ "BL1",
+      grepl("6M$", affect_visit) ~ "6M"
+    ),
+    group = factor(group, levels = c("Ctl", "Non-Aff", "Aff")),
+    visit = factor(visit, levels = c("BL1", "6M"))
+  )
+
+
+plot_bprs_bar4 <- ggplot(
+  dat_bprs_long,
+  aes(
+    x = bprs_symptom,
+    y = bprs_score,
+    fill = group,
+    pattern = visit
+  )
+) +
+  stat_summary(
+    fun = "mean",
+    geom = "bar_pattern",
+    position = position_dodge(width = 0.9),
+    color = "black",
+    pattern_fill = "black",
+    pattern_color = "black",
+    pattern_density = 0.1,
+    pattern_spacing = 0.02
+  ) +
+  stat_summary(
+    fun.data = mean_se,
+    geom = "errorbar",
+    position = position_dodge(width = 0.9),
+    width = 0.3
+  ) +
+  coord_cartesian(ylim = c(1, NA)) +
+  labs(
+    title = "BPRS Symptoms",
+    y = "Average Item Score",
+    x = "Symptom Subfactors",
+    fill = "Group",
+    pattern = "Visit"
+  ) +
+  scale_fill_manual(
+    values = c("Ctl" = "#2C737F", "Non-Aff" = "#AA8829", "Aff" = "#C44E52"),
+    labels = c("Ctl", "Non-Aff", "Aff")
+  ) +
+  scale_pattern_manual(
+    values = c("BL1" = "none", "6M" = "stripe"),
+    labels = c("Visit 1", "6-Month")
+  ) +
+  guides(
+    fill = guide_legend(override.aes = list(pattern = "none")),
+    pattern = guide_legend()
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(face = "bold", size = 12),
+    axis.title = element_text(face = "bold", size = 16),
+    legend.text = element_text(face = "bold", size = 12),
+    legend.title = element_text(face = "bold", size = 16),
+    plot.title = element_text(face = "bold", size = 22)
+  )
+plot_bprs_bar4
+
+# save plot to computer/local device
+ggsave(paste0("graphs/", format(Sys.Date(), "%Y%m%d"), 
+              "_BPRS_affect_v2_longitudinal.png"),
+         plot_bprs_bar4, width = 6, height = 4)
+
 ```
 
 # Global Function
